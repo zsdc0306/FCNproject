@@ -1,0 +1,100 @@
+#! /usr/bin/python2.7
+import socket
+import re
+import string
+import sys
+import getopt
+import ssl
+
+
+#define the target environment
+port=27993
+addr="cs5700sp16.ccs.neu.edu"
+HelloMsg="cs5700spring2016 HELLO 001777115\n"
+Byemsg = "cs5700spring2016 (.*?) BYE\n"
+isSSL = 0
+
+#getopt.getopt(args,options[,long_options])
+
+opts,args = getopt.getopt(sys.argv[1:],"p:s")
+
+
+for op, value in opts:
+	if op == '-p':
+		port = int(value)
+        #print port
+	elif op == '-s':
+		isSSL = 1
+		port = 27994
+if(len(sys.argv)<3):
+	print "missing parameter"
+	print "you should at least give hostname and NEUID"
+	print "exiting"
+	exit()
+NEUID = sys.argv[-1]
+hostname = sys.argv[-2]
+HelloMsg="cs5700spring2016 HELLO "+ NEUID+"\n"
+
+#argv[1:] remove the script file name, only get the parameter
+
+def solveFun(msg):
+	#match the expression in the reponse
+	pattern=re.compile('cs5700spring2016 STATUS (.*?) (.*?) (.*?)\n')
+	items=re.findall(pattern,msg)
+	#print items
+	for item in items:
+		#print item[0],item[1],item[2]
+		firstNum = string.atoi(item[0])
+		oper = item[1]
+		secNum = string.atoi(item[2])
+
+	#print RevData
+	#print firstNum, secNum
+	if (oper == "+"):
+		response = firstNum + secNum
+	elif (oper == "-"):
+		response = firstNum - secNum
+	elif (oper == "*"):
+	    response = firstNum * secNum
+	elif (oper == "/"):
+		response = int(firstNum / secNum)
+
+	return response
+
+def main():
+	#create the TCP socket
+	ori_socket=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	if(isSSL == 0):
+		mysocket=ori_socket
+		#print "normal socket created"
+	else:
+		# wrap the socket with ssl protocol
+		mysocket = ssl.wrap_socket(ori_socket)
+		#print "ssl socket created"
+
+	#print port
+	mysocket.connect((addr,port))
+
+	#print "socket connected"
+	mysocket.send(HelloMsg.encode())
+	RevData=mysocket.recv(256)
+	while RevData[-4:]!='BYE\n':
+		response = solveFun(RevData);
+		#print response
+		SolutionMsg="cs5700spring2016 " + str(response)+"\n";
+		mysocket.send(SolutionMsg.encode());
+		RevData=mysocket.recv(256)
+
+	pattern = re.compile(Byemsg);
+	secretID = re.findall(pattern,RevData);
+	#print "secretID:" + secretID[0]
+	print secretID[0]
+	#print RevData
+
+	mysocket.close()
+	#print "connection closed"
+
+
+
+main()
+

@@ -1,0 +1,9 @@
+APPROACH:
+In our program, we use python to implement the function.
+We firstly get the parameter to decide whether use ssl connection or normal connection and get the NEUID & hostname. Then we create the socket to connect to the server and send the HELLOmsg. After getting the reponse msg, we process the message and get the two numbers and the opertion sign and than calculate the expression and send to the server. When get the message that contain BYE, broke the loop and get the secret flag.
+CHALLENGE:
+The main challenge occured when using ssl connection. We can't find the ca certification. At last we realized that the ca cert is not necessary because we can trust the server we connect to. The function of the ca cert is to verify the server. So we left the ca-cert blank.
+
+TEST:
+We tried to use less than 2 parameter and the program will exit because the hostname and the NEUID is required.
+We tried to use both with -s and without -s and the returned secret flag is different.
