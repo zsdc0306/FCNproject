@@ -1,0 +1,307 @@
+import re
+import string
+import socket
+import sys
+import urlparse
+import time
+import Queue
+
+Useragent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36'
+CRLF = '\r\n'  #need to add to end of every line 
+username = '001777115'
+password = '9NXCJQNN'
+if len(sys.argv)>=1:
+	username = sys.argv[1]
+	password = sys.argv[2]
+
+secretFlagMatch = '<h2 class=\'secret_flag\' style="color:red">FLAG: (.*)</h2>'
+
+
+class Cookie:
+	def __init__(self):
+		self.csrftoken = ''
+		self.sessionid = ''
+		self.isCookie = 0
+	def getCoockie(self):
+		CookieContent = "csrftoken="+self.csrftoken+"; sessionid="+self.sessionid
+		return CookieContent
+	def setCookie(self,csrftoken,sessionid):
+		self.csrftoken = csrftoken
+		self.sessionid = sessionid
+		return	
+
+def get(sock, url,Cookie):
+	url = urlparse.urlparse(url)
+	host = url.netloc
+	if url.path == '':
+		path = '/'
+	path = url.path
+	HTTP_Protocol = 'GET '+path+' HTTP/1.1'
+	CookieStr = ''
+	if Cookie.isCookie:
+		CookieStr = Cookie.getCoockie()
+	Request_Header = [
+		HTTP_Protocol,
+		"Host: "+host,
+		"Connection: keep-alive",
+		"Cache-Control: max-age=0",
+		"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+		"Referer: http://cs5700sp16.ccs.neu.edu/",
+		"Upgrade-Insecure-Requests: 1",
+		"User-Agent: "+Useragent,
+		"DNT: 1",
+		"Accept-Language: en-US,en;q=0.8,zh-CN;q=0.6",
+		"Cookie: "+CookieStr,
+		"",
+		"",
+	]
+	Request = CRLF.join(Request_Header)
+	sock.sendall(Request)
+	# Response = sock.recv(4096)
+	# Response += sock.recv(4096)
+	# tmp = sock.recv(4096)
+	# while tmp != '':
+	# 	Response = Response + tmp
+	# 	tmp = sock.recv(4096)
+	return
+
+def post(sock,url,postdata,getdata,Cookie):
+	datalength = len(postdata)
+	CookieStr = ''
+	# print "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"+str(Cookie.isCookie)+"%" +Cookie.csrftoken+ "%"+Cookie.sessionid
+	if Cookie.isCookie:
+		CookieStr = Cookie.getCoockie()
+	Request_Header = [
+		"POST /accounts/login/?next=/fakebook/ HTTP/1.1",
+		"Host: cs5700sp16.ccs.neu.edu",
+		"Connection: keep-alive",
+		"User-Agent: "+Useragent,
+		"Content-Length: " + str(datalength), 
+		"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+		"Accept-Language: en-US,en;q=0.8,zh-CN;q=0.6",
+		"Referer: http://cs5700sp16.ccs.neu.edu/accounts/login?next=/fakebook/",
+		"Content-Type: application/x-www-form-urlencoded",
+		"Cache-Control: max-age=0",
+		"Origin: http://cs5700sp16.ccs.neu.edu",
+		"Upgrade-Insecure-Requests: 1",
+		"Cookie: "+CookieStr,
+		"",
+		"",
+	]
+	Request = CRLF.join(Request_Header) + postdata
+	sock.sendall(Request)
+	# print "sssssssssssssssssssssssssssssssssssss"
+	# print Request
+	# Response = sock.recv(4096)
+	return
+	# tmp = sock.recv(4096)
+	# while (tmp):
+	# 	Response = Response + tmp
+	# 	tmp = sock.recv(4096)
+	# return Response
+
+
+
+def getcsrftoken(responsedata):
+	patternstr = "Set-Cookie: csrftoken=(.*); expires="
+	pattern = re.compile(patternstr)
+	csrftoken = re.findall(pattern, responsedata)
+	return csrftoken[0]
+
+
+def getsessionid(responsedata):
+	patternstr = "Set-Cookie: sessionid=(.*); expires="
+	pattern = re.compile(patternstr)
+	sessionid = re.findall(pattern, responsedata)
+	return sessionid[0]
+
+def createSocket():
+	host = "cs5700sp16.ccs.neu.edu"
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	sock.connect((host,80))
+	# sock.settimeout(10)
+	return sock
+
+def isNorm(data):
+	if(len(data)<12):
+		return False
+	elif(data[9:12] == "200"):
+		return True
+	else:
+		return False
+
+def is500(data):
+	if(data[9:12] == "200"):
+		return True
+	else:
+		return False
+
+
+def is302error(data):
+	Location =''
+	if(data[9:12] == "302"):
+		patternstr = "Location: (.*)\r\n"
+		pattern = re.compile(patternstr)
+		Location = re.findall(pattern, data)
+	else:
+		return False
+	return Location[0]
+
+def cutChunkNum(data):
+	pos = data.rfind("\r\n\r\n")
+	return data[:pos]
+
+def getChunkNum(data):
+	pos = data.find("\r\n\r\n") + 4
+	return str(data[pos:])
+
+def RecvData(sock):
+	Response =''
+	# timeout = 0.5
+	ResponseHeader = sock.recv(4096)
+	# print "\n\n\n\n\n\n"
+	Response += ResponseHeader
+	# print "ResponseHeader:"
+	# print Response
+	if isChunk(Response):
+		# blockNum = getChunkNum(Response)
+		# Response = cutChunkNum(Response)
+		# if not blockNum:
+		# 	return Response
+		tmp = '****'
+		while 1:
+			tmp = str(sock.recv(4096))
+			if str(tmp)[0] == '0':
+				break
+			else:
+				Response += cutChunkNum(tmp)
+			# blockNum = getChunkNum(tmp)
+			# Response += cutChunkNum(tmp)
+			print "\n\n\n\n\ntmp" +tmp+"\n"
+			print "\r\n\r\n\r\n\r\n"+Response+"\n"
+	else:
+		# print "^^^^^^^^^^^^^^^^^^ content length^^^^^^^^^^^^^^^^^^^^^^"
+		content_pos = ResponseHeader.find("\r\n\r\n")+4
+		content_len_rev = len(ResponseHeader[content_pos:])
+		content_len = ResponseDatalength(ResponseHeader)
+		# print "\r\n\r\n\r\n\r\n"+ResponseHeader+"\n"
+		# print "content length:\n"+str(content_len) +"\n\n\n\n\n"
+		length = content_len - content_len_rev
+		if(length == 0):
+			return Response
+		# print "length"+str(length)
+		while length != 0:
+			tmp = sock.recv(4096)
+			Response += tmp
+			length -= len(tmp)
+			# print "************************************"
+			# print tmp
+	return Response
+
+def isChunk(header):
+	if "Transfer-Encoding: chunked" in header:
+		return 1
+	else:
+		return 0
+
+
+def ResponseDatalength(header):
+	patternstr = "Content-Length: (\d*)\r\n"
+	pattern = re.compile(patternstr)
+	datalength = re.findall(pattern, header)
+	return int(datalength[0])
+
+def CheckCookie(data, Cookie):
+	csrftoken = Cookie.csrftoken
+	sessionid = Cookie.sessionid
+	if "Set-Cookie: sessionid" in data:
+		sessionid = getsessionid(data)
+		Cookie.isCookie |= 1 
+	if "Set-Cookie: csrftoken" in data:
+		csrftoken = getcsrftoken(data)
+		Cookie.isCookie |= 1
+	Cookie.setCookie(csrftoken,sessionid)
+	return
+
+def matchSecretFlag(data):
+	patternstr = secretFlagMatch
+	pattern = re.compile(patternstr)
+	secret_flag = re.match(pattern, data)
+	if not secret_flag:
+		return 0
+	return secret_flag[0]
+
+def matchUrl(data):
+	patternstr = ".*?<a href=\"/fakebook/(.*?)\">"
+	pattern = re.compile(patternstr)
+	url = re.findall(pattern, data)
+	return url
+
+
+def main():
+	myCookie = Cookie()
+	sock = createSocket()
+	get(sock,'http://cs5700sp16.ccs.neu.edu/accounts/login/?next=/fakebook/',myCookie)
+	data = RecvData(sock)
+	CheckCookie(data,myCookie)
+	# print "get data\r\n"+data
+	# print data
+	# sock.close()
+	# sock = createSocket()
+	postdata = 'username='+username+'&password='+password+'&csrfmiddlewaretoken='+myCookie.csrftoken
+	post(sock,'http://cs5700sp16.ccs.neu.edu/accounts/login/?next=/fakebook/',postdata,data,myCookie)
+	postres = RecvData(sock)
+	CheckCookie(postres,myCookie)
+	# print "post\r\n"+postres
+	if(not isNorm(postres)):
+		print postres[9:12]
+		if is302error(postres):
+			get(sock, is302error(postres),myCookie)
+			loginedData = RecvData(sock)
+			print "login \n\n\n\n\n\n"+ loginedData
+		else:
+			print "error"
+	secret_flag =[]
+	VisitedUrl = []
+	Url_Q = Queue.Queue()
+	crawdata = loginedData
+	urls = matchUrl(crawdata)
+	# print urls
+	for url in urls:
+		Url_Q.put(url)
+	# print "craw\n\n\n\n\n\n"+crawdata
+	# urls=matchUrl(crawdata)
+	# print urls
+	urlhead = "http://cs5700sp16.ccs.neu.edu/fakebook/"
+	index = 1
+	while len(secret_flag)<5:
+		url = Url_Q.get()
+		print str(index) + ":" + url
+		index += 1
+		if url not in VisitedUrl:
+			print "get\n"
+			get(sock,urlhead+url,myCookie)
+			crawdata = RecvData(sock)
+			if isNorm(crawdata):
+				VisitedUrl.append(url)
+				print "norm\n"
+				urls = matchUrl(crawdata)
+				for url in urls:
+					if(url not in VisitedUrl):
+						Url_Q.put(url)
+				flag = matchSecretFlag(crawdata)
+				if flag:
+					secret_flag.append(flag)
+			elif is500(crawdata):
+				continue
+			else:
+				print crawdata
+		else:
+			continue
+	sock.close()
+	for flag in secret_flag:
+		print flag + '\n'
+
+main()
+
+
