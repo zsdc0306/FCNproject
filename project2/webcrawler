@@ -246,10 +246,10 @@ def login(sock,myCookie):
 		if is302error(postres):
 			get(sock, is302error(postres),myCookie)
 			loginedData = RecvData(sock)
-			print "loged in"
+			# print "loged in"
 			return loginedData
 		else:
-			print "ERROR Response, Retry"
+			# print "ERROR Response, Retry"
 			return login(sock,myCookie)
 	return postres
 	
@@ -282,8 +282,9 @@ def main():
 			if "Connection: close" in crawdata:
 				sock = createSocket()
 				continue
+			#if get the 500 internal error, the connection will 
 			if isNorm(crawdata):
-				print str(index) + ":" + url
+				# print str(index) + ":" + url
 				index += 1
 				VisitedUrl.append(url)
 				urls = matchUrl(crawdata)
@@ -291,23 +292,23 @@ def main():
 					if(url not in VisitedUrl):
 						Url_Q.put(url)
 				flag = matchSecretFlag(crawdata)
-				print "total flag" + str(secret_flag)
+				# print "total flag" + str(secret_flag)
 				if flag:
 					secret_flag.append(flag)
 			elif is403error(crawdata):
 				crawdata = login(sock,myCookie)
 			else:
 				sock = createSocket()
-				print "ERROR"
-				print crawdata
+				# print "ERROR"
+				# print crawdata
 				continue
 		else:
 			continue
 	sock.close()
 	end= time.time()
-	print "time"+ str(end - begin)
+	# print "time"+ str(end - begin)
 	for flag in secret_flag:
-		print flag + '\n'
+		print flag
 
 main()
 
