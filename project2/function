@@ -1,3 +1,4 @@
+#! /usr/bin/python2.7
 import re
 import string
 import socket
@@ -10,11 +11,12 @@ Useragent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/537.36 
 CRLF = '\r\n'  #need to add to end of every line 
 username = '001777115'
 password = '9NXCJQNN'
+secretFlagMatch = 'FLAG: (.*)</h2><h2>'
+
+
 if len(sys.argv)>=1:
 	username = sys.argv[1]
-	password = sys.argv[2]
-
-secretFlagMatch = '<h2 class=\'secret_flag\' style="color:red">FLAG: (.*)</h2>'
+ 	password = sys.argv[2]
 
 
 class Cookie:
@@ -28,7 +30,7 @@ class Cookie:
 	def setCookie(self,csrftoken,sessionid):
 		self.csrftoken = csrftoken
 		self.sessionid = sessionid
-		return	
+		return
 
 def get(sock, url,Cookie):
 	url = urlparse.urlparse(url)
@@ -57,18 +59,11 @@ def get(sock, url,Cookie):
 	]
 	Request = CRLF.join(Request_Header)
 	sock.sendall(Request)
-	# Response = sock.recv(4096)
-	# Response += sock.recv(4096)
-	# tmp = sock.recv(4096)
-	# while tmp != '':
-	# 	Response = Response + tmp
-	# 	tmp = sock.recv(4096)
 	return
 
 def post(sock,url,postdata,getdata,Cookie):
 	datalength = len(postdata)
 	CookieStr = ''
-	# print "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"+str(Cookie.isCookie)+"%" +Cookie.csrftoken+ "%"+Cookie.sessionid
 	if Cookie.isCookie:
 		CookieStr = Cookie.getCoockie()
 	Request_Header = [
@@ -90,16 +85,7 @@ def post(sock,url,postdata,getdata,Cookie):
 	]
 	Request = CRLF.join(Request_Header) + postdata
 	sock.sendall(Request)
-	# print "sssssssssssssssssssssssssssssssssssss"
-	# print Request
-	# Response = sock.recv(4096)
 	return
-	# tmp = sock.recv(4096)
-	# while (tmp):
-	# 	Response = Response + tmp
-	# 	tmp = sock.recv(4096)
-	# return Response
-
 
 
 def getcsrftoken(responsedata):
@@ -136,6 +122,11 @@ def is500(data):
 	else:
 		return False
 
+def is403error(data):
+	if(data[9:12] == "403"):
+		return True
+	else:
+		return False
 
 def is302error(data):
 	Location =''
@@ -157,46 +148,32 @@ def getChunkNum(data):
 
 def RecvData(sock):
 	Response =''
-	# timeout = 0.5
 	ResponseHeader = sock.recv(4096)
-	# print "\n\n\n\n\n\n"
 	Response += ResponseHeader
-	# print "ResponseHeader:"
-	# print Response
 	if isChunk(Response):
-		# blockNum = getChunkNum(Response)
-		# Response = cutChunkNum(Response)
-		# if not blockNum:
-		# 	return Response
-		tmp = '****'
+		if "\r\n0\r\n" in Response:
+			return Response
 		while 1:
 			tmp = str(sock.recv(4096))
-			if str(tmp)[0] == '0':
+			if (tmp[0] == "0") or ("\n0\r\n" in tmp):
 				break
 			else:
-				Response += cutChunkNum(tmp)
-			# blockNum = getChunkNum(tmp)
-			# Response += cutChunkNum(tmp)
-			print "\n\n\n\n\ntmp" +tmp+"\n"
-			print "\r\n\r\n\r\n\r\n"+Response+"\n"
-	else:
-		# print "^^^^^^^^^^^^^^^^^^ content length^^^^^^^^^^^^^^^^^^^^^^"
+				Response += tmp
+		return Response
+	elif "Content-Length:" in Response:
 		content_pos = ResponseHeader.find("\r\n\r\n")+4
 		content_len_rev = len(ResponseHeader[content_pos:])
 		content_len = ResponseDatalength(ResponseHeader)
-		# print "\r\n\r\n\r\n\r\n"+ResponseHeader+"\n"
-		# print "content length:\n"+str(content_len) +"\n\n\n\n\n"
 		length = content_len - content_len_rev
 		if(length == 0):
 			return Response
-		# print "length"+str(length)
 		while length != 0:
 			tmp = sock.recv(4096)
 			Response += tmp
 			length -= len(tmp)
-			# print "************************************"
-			# print tmp
-	return Response
+		return Response
+	else:
+		return ''
 
 def isChunk(header):
 	if "Transfer-Encoding: chunked" in header:
@@ -206,7 +183,7 @@ def isChunk(header):
 
 
 def ResponseDatalength(header):
-	patternstr = "Content-Length: (\d*)\r\n"
+	patternstr = "Content-Length: (.*?)\r\n"
 	pattern = re.compile(patternstr)
 	datalength = re.findall(pattern, header)
 	return int(datalength[0])
@@ -226,7 +203,7 @@ def CheckCookie(data, Cookie):
 def matchSecretFlag(data):
 	patternstr = secretFlagMatch
 	pattern = re.compile(patternstr)
-	secret_flag = re.match(pattern, data)
+	secret_flag = re.findall(pattern, data)
 	if not secret_flag:
 		return 0
 	return secret_flag[0]
@@ -238,67 +215,79 @@ def matchUrl(data):
 	return url
 
 
-def main():
-	myCookie = Cookie()
-	sock = createSocket()
+def login(sock,myCookie):
 	get(sock,'http://cs5700sp16.ccs.neu.edu/accounts/login/?next=/fakebook/',myCookie)
 	data = RecvData(sock)
 	CheckCookie(data,myCookie)
-	# print "get data\r\n"+data
-	# print data
-	# sock.close()
-	# sock = createSocket()
 	postdata = 'username='+username+'&password='+password+'&csrfmiddlewaretoken='+myCookie.csrftoken
 	post(sock,'http://cs5700sp16.ccs.neu.edu/accounts/login/?next=/fakebook/',postdata,data,myCookie)
 	postres = RecvData(sock)
 	CheckCookie(postres,myCookie)
-	# print "post\r\n"+postres
 	if(not isNorm(postres)):
-		print postres[9:12]
+	#
 		if is302error(postres):
 			get(sock, is302error(postres),myCookie)
 			loginedData = RecvData(sock)
-			print "login \n\n\n\n\n\n"+ loginedData
+			print "loged in"
+			return loginedData
 		else:
-			print "error"
+			print "ERROR Response, Retry"
+			return login(sock,myCookie)
+	return postres
+	
+
+
+
+def main():
+	begin = time.time()
+	myCookie = Cookie()
+	sock = createSocket()
+	loginedData = login(sock,myCookie)
 	secret_flag =[]
 	VisitedUrl = []
 	Url_Q = Queue.Queue()
 	crawdata = loginedData
 	urls = matchUrl(crawdata)
-	# print urls
 	for url in urls:
 		Url_Q.put(url)
-	# print "craw\n\n\n\n\n\n"+crawdata
-	# urls=matchUrl(crawdata)
-	# print urls
 	urlhead = "http://cs5700sp16.ccs.neu.edu/fakebook/"
 	index = 1
 	while len(secret_flag)<5:
 		url = Url_Q.get()
-		print str(index) + ":" + url
-		index += 1
 		if url not in VisitedUrl:
-			print "get\n"
 			get(sock,urlhead+url,myCookie)
-			crawdata = RecvData(sock)
+			try:
+				crawdata = RecvData(sock)
+			except Exception, e:
+				socket = createSocket()
+				continue
+			if "Connection: close" in crawdata:
+				sock = createSocket()
+				continue
 			if isNorm(crawdata):
+				print str(index) + ":" + url
+				index += 1
 				VisitedUrl.append(url)
-				print "norm\n"
 				urls = matchUrl(crawdata)
 				for url in urls:
 					if(url not in VisitedUrl):
 						Url_Q.put(url)
 				flag = matchSecretFlag(crawdata)
+				print "total flag" + str(secret_flag)
 				if flag:
 					secret_flag.append(flag)
-			elif is500(crawdata):
-				continue
+			elif is403error(crawdata):
+
 			else:
+				sock = createSocket()
+				print "ERROR"
 				print crawdata
+				continue
 		else:
 			continue
 	sock.close()
+	end= time.time()
+	print "time"+ str(end - begin)
 	for flag in secret_flag:
 		print flag + '\n'
 
