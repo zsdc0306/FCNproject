@@ -16,7 +16,9 @@ secretFlagMatch = 'FLAG: (.*)</h2><h2>'
 
 if len(sys.argv)>=1:
 	username = sys.argv[1]
- 	password = sys.argv[2]
+	password = sys.argv[2]
+else:
+	print "You need at least input username and password"
 
 
 class Cookie:
@@ -62,13 +64,19 @@ def get(sock, url,Cookie):
 	return
 
 def post(sock,url,postdata,getdata,Cookie):
+	url = urlparse.urlparse(url)
+	host = url.netloc
+	if url.path == '':
+		path = '/'
+	path = url.path
+	HTTP_Protocol = 'POST '+path+' HTTP/1.1'
 	datalength = len(postdata)
 	CookieStr = ''
 	if Cookie.isCookie:
 		CookieStr = Cookie.getCoockie()
 	Request_Header = [
-		"POST /accounts/login/?next=/fakebook/ HTTP/1.1",
-		"Host: cs5700sp16.ccs.neu.edu",
+		HTTP_Protocol,
+		"Host: "+host,
 		"Connection: keep-alive",
 		"User-Agent: "+Useragent,
 		"Content-Length: " + str(datalength), 
@@ -105,7 +113,6 @@ def createSocket():
 	host = "cs5700sp16.ccs.neu.edu"
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock.connect((host,80))
-	# sock.settimeout(10)
 	return sock
 
 def isNorm(data):
@@ -146,6 +153,17 @@ def getChunkNum(data):
 	pos = data.find("\r\n\r\n") + 4
 	return str(data[pos:])
 
+
+#rewrite the recv method
+#when the raw methed sock.recv try to get the message that the server can't give, than the socket will be get error.
+#HTTP response may devided to two kind, one will return content-length, the other is transfer-encodeing chunked.
+#content-length: the response header will give the length of the content
+#it need to calculate the length of the raw response header and decide how many times need to recv the data.
+#chunked: the server may devide the response data to several block
+#at start of block it will give the length of the block in hex-encoding
+#the end of block will use a 0 as end ot the response
+#there will be several kinds of the end
+#the 0 may occur as single 0 or may as \n0\r\n
 def RecvData(sock):
 	Response =''
 	ResponseHeader = sock.recv(4096)

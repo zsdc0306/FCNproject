@@ -1,0 +1,12 @@
+high-level approach:
+In our program, we use python to implement the function
+We devide the program to several functions. login, process the url in the page, match the secret flag.
+We design the several methods, as get, post, recvData。
+
+Challenge:
+When developing the program, it occurs that the sock.recv may get error. For example, when the server has no reponse for the client, the client still ask for response, the server may block and always response '' back. So we have to rewrite the sock.recv. HTTP response may devided to two kinds, one will return content-length, the other is transfer-encodeing chunked. Content-length: the response header will give the length of the content. It need to calculate the length of the raw response header and decide how many times need to recv the data.
+When the response is chunked, the server may devide the response data to several block, at start of block it will give the length of the block in hex-encoding, the end of block will use a 0 as end ot the response. There will be several kinds of the end. The 0 may occur as single 0 or may as \n0\r\n. 
+Besides, there may occur that the server may response 500 interal error and the connection will be closed. So when the connection: closed we need to reconnect the socket.
+
+Test:
+We run the code for several times and when there is error, we use print to locate the error.
