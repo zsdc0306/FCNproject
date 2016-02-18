@@ -2,8 +2,13 @@
 set ns [new Simulator]
 
 #Open the NAM trace file
-set nf [open out.nam w]
+set tf [open out.nam w]
 $ns namtrace-all $nf
+
+#Open the trace file (before you start the experiment!)
+set tf [open my_experimental_output.tr w]
+$ns trace-all $tf
+
 
 
 #Define a 'finish' procedure
@@ -16,6 +21,8 @@ proc finish {} {
         exec nam out.nam &
         exit 0
 }
+
+
 
 #Create six nodes
 set n1 [$ns node]
@@ -45,7 +52,7 @@ $cbr0 attach-agent $udp0
 
 #Create a sink and attach it to n3
 set null0 [new Agent/Null] 
-$ns attach-agent $n3 $null
+$ns attach-agent $n3 $null0
 
 #connect each other
 $ns connect $udp0 $null0
@@ -55,8 +62,13 @@ $ns at 4.5 "$cbr0 stop"
 
 
 
-$ns at 5.0 "finish"
+#$ns at 5.0 "finish"
 
 
 $ns run
+
+# Close the trace file (after you finish the experiment!)
+close $tf
+
+
 
