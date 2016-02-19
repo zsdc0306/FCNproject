@@ -1,0 +1,23 @@
+ Exp 1
+In exp1, we need to build the topology as showed in instruction in NS2. Bind a CBR sender in node2 and bind a sink in node3. Bind a TCP sender in node1 and a sink in n4. Keep other condition and change the bandwith of CBR flow and see how it will influence the performance of the TCP flow. We need to use bandwith of BCR and type of TCP flow (Tahoe, Reno, NewReno and Vegas) as argument to run the program for several times. Record the result as plain file. Than use python to write an analisis program to read and calculate the result.
+To answer the question:
+1. which TCP variants are able to get higher average throughput? count in a particular time how many packets are reveived by the sink.
+2. Which has the lowest average latency? Find the packetID and use receive time minus enqueue time to calculate the latency. Calculate average latency time and find the lowest average latency.
+3. Which has the fewest drops? Count all the packets with drop event.
+4. 'Best' TCP? It should depend on the result above. I believe there is no 'best' TCP but only the best that suitable for network enviornment.
+
+
+Exp 2
+In exp2, we need to compare two different TCP flow. Most part is the same as exp1, set a CBR from node2 to node3, set a TCP from node1 to node 4 and another from node5 to node6. Change the CBR bandwith and use different pairs of TCP flow(Reno/Reno, NewReno/Reno, Vegas/Vegas, NewReno/Vegas). Use python to read and analysis the result.
+
+1. Are the different combinations of variants fair to each other? Compare the different pair TCP combinations to see whether the average throughput, latency, drop rate is largely different with each other.
+2. Are there combinations that are unfair, and if so, why is the combination unfair? 
+To explain unfairness, you will need to think critically about how the protocols are implemented and why the different choices in different TCP variants can impact fairness. 
+
+Exp 3
+In exp3, we need to test how the different queue type influence the network performance. Set TCP flow from node1 to node4 and CBR from node5 to node6. Start TCP flow 1 second before CBR. Using different queues(DropTail and RED) and use Reno/SACK. Use python to analysis the difference.
+
+1. Does each queuing discipline provide fair bandwidth to each flow? Calculate the thoughput between two queuing.
+2. How does the end-to-end latency for the flows differ between DropTail and RED? Compare the average latency in condition of DropTail and RES.
+3. How does the TCP flow react to the creation of the CBR flow? Compare the TCP flow before 1 second and after 1 second to see the influence of CBR flow.
+4. Is RED a good idea while dealing with SACK? It need to compare the drop rate, latency and thoughput between RED for SACK and RED for Reno, DropTail for SACK and RED for SACK.

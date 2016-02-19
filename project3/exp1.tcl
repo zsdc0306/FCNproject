@@ -1,24 +1,19 @@
 #Create a simulator object
 set ns [new Simulator]
 
-#Open the NAM trace file
-set tf [open out.nam w]
-$ns namtrace-all $nf
-
 #Open the trace file (before you start the experiment!)
-set tf [open my_experimental_output.tr w]
+set tf [open my_experiment1_output.tr w]
 $ns trace-all $tf
-
 
 
 #Define a 'finish' procedure
 proc finish {} {
         global ns nf
         $ns flush-trace
-        #Close the NAM trace file
-        close $nf
-        #Execute NAM on the trace file
-        exec nam out.nam &
+        #Close the trace file
+        close $tf
+        #Execute python on the trace file
+        exec python my_experiment1_output.tr &
         exit 0
 }
 
@@ -44,11 +39,25 @@ $ns duplex-link $n6 $n6 10Mb 10ms DropTail
 set udp0 [new Agent/UDP]
 $ns attach-agent $n2 $udp0
 
+
+#Setup a TCP connection
+set tcp0 [new Agent/TCP]
+$tcp set class_ 2
+$ns attach-agent $n1 $tcp0
+
+set sink [new Agent/TCPSink]
+$ns attach-agent $n4 $sink
+$ns connect $tcp0 $sink0
+$tcp set fid_ 1
+
 # Create a CBR traffic source and attach it to udp0
 set cbr0 [new Application/Traffic/CBR]
 $cbr0 set packetSize_ 500
 $cbr0 set interval_ 0.005
 $cbr0 attach-agent $udp0
+
+
+
 
 #Create a sink and attach it to n3
 set null0 [new Agent/Null] 
