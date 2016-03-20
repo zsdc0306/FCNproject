@@ -14,7 +14,7 @@ password = '9NXCJQNN'
 secretFlagMatch = 'FLAG: (.*)</h2><h2>'
 
 
-if len(sys.argv)>=1:
+if len(sys.argv)>1:
 	username = sys.argv[1]
 	password = sys.argv[2]
 else:
@@ -37,9 +37,9 @@ class Cookie:
 def get(sock, url,Cookie):
 	url = urlparse.urlparse(url)
 	host = url.netloc
+	path = url.path
 	if url.path == '':
 		path = '/'
-	path = url.path
 	HTTP_Protocol = 'GET '+path+' HTTP/1.1'
 	CookieStr = ''
 	if Cookie.isCookie:
