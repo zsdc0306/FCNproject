@@ -79,6 +79,10 @@ pack.TCPHeader.setSeq(conAckPack.TCPHeader.getSeq())
 getpack = pack.packPacket(PSH,user_data_get)
 pack.sendPack(sendsock,getpack,(dstIP,0))
 
+recvPack = packet.Packet(dstIP,srcIP,dstPort,srcPort)
+recvPack = recvPack.recvPack(recvsock)
+
+
 
 
 

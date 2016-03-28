@@ -80,15 +80,21 @@ class TCPHeader:
 
         return s
 
-    def uppackTCPHeader(self,recvpack):
+    def unpackTCPHeader(self,recvpack):
         tcpHeader = recvpack[0][20:44]
         tcp_hdr = unpack("!HHLLHHHHL",tcpHeader)
         srcPort = tcp_hdr[0]
         dstPort = tcp_hdr[1]
         seqNum = tcp_hdr[2]
         ackNum = tcp_hdr[3]
+        flag = tcp_hdr[4]
+        # TODO unpack(flag)
         window = tcp_hdr[5]
+        checksum = tcp_hdr[6]
         self.setSeq(seqNum)
         self.setAck(ackNum)
         self.setWindow(window)
         self.setPort(srcPort,dstPort)
+
+
+    # TODO def unpack (flag)
