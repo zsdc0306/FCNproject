@@ -77,7 +77,7 @@ def recvAck(sendsocket, recvsocket):
     ackNum = recvPacket.TCPHeader.getAck()
     ackPack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
     ackPack.TCPHeader.setAck(seqNum+len(recvPacket.segmentData))
-    print len(recvPacket.segmentData)
+    print "segment len" + str(len(recvPacket.segmentData))
     ackPack.TCPHeader.setSeq(ackNum)
     ackPack.packPacket(ACK,"")
     # print "send seq:" + str(ackPack.TCPHeader.seqNum)
