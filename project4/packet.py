@@ -29,7 +29,7 @@ class Packet:
         self.nextExpectedSeq = -1
         self.segmentTCPBuffer = TCPHeader.TCPHeader()
         self.segmentIPBuffer = IPHeader.IPHeader()
-        self.segmentBuffer = 0
+        self.isSegmentBuffer = 0
 
     def getPktCon(self):
         return self.pktcontent
@@ -38,6 +38,7 @@ class Packet:
         self.segmentTCPBuffer = TCPHeader
         self.segmentIPBuffer = IPHeader
         self.segmentIPBuffer = 1
+
 
     def getSegData(self):
         return self.segmentData
@@ -74,7 +75,6 @@ class Packet:
 
     def recvPack(self,sock):
         recvbuff= sock.recvfrom(65535)
-        packlen = 2
         while 1:
             ipHeader = unpack("!BBHHHBBH4s4s",recvbuff[0][0:20])
             tcpHeader = unpack("!HHLLHHHH",recvbuff[0][20:40])
@@ -87,27 +87,41 @@ class Packet:
                 recvTCPheader = self.TCPHeader
                 recvIPheader.unpackIPHeader(recvbuff)
                 recvTCPheader.unpackTCPHeader(recvbuff)
+                if recvTCPheader.syn == 1 or recvTCPheader.fin == 1:
+                    break
                 if self.nextExpectedSeq != -1:
                     if recvTCPheader.seqNum != self.nextExpectedSeq:
                         self.setSegmentBuffer(recvTCPheader,recvIPheader)
                         recvbuff = sock.recvfrom(65535)
                         continue
-                    elif recvTCPheader.seqNum == self.nextExpectedSeq:
-                        self.setNextSeq(recvTCPheader.seqNum + (recvTCPheader.data))
-
-                    if recvTCPheader.syn == 1 or recvTCPheader.fin == 1:
-                        break
                     else:
+                        self.setNextSeq(recvTCPheader.seqNum + (recvTCPheader.data))
                         self.segmentData += recvTCPheader.data
-                        print "^^^^^^^^^^^^^^^^^^^^^psh" + str(recvTCPheader.psh)
-                        print "syn:" + str(recvTCPheader.syn) + "ack:" + str(recvTCPheader.ack) + "fin:" + str(recvTCPheader.fin)
-                        # packlen = packlen - 1
-                        # print packlen
-
-                        if recvTCPheader.psh == 1:
-                            break
+                        if self.isSegmentBuffer == 1:
+                            if self.nextExpectedSeq == self.segmentTCPBuffer.seqNum:
+                                self.TCPHeader = self.segmentTCPBuffer
+                                self.IPHeader = self.segmentIPBuffer
+                            else:
+                                self.TCPHeader = recvTCPheader
+                                self.IPHeader = recvIPheader
+                                break
                         else:
-                            recvbuff = sock.recvfrom(65535)
+                            self.TCPHeader = recvTCPheader
+                            self.IPHeader = recvIPheader
+                else:
+                    self.segmentData += recvTCPheader.data
+                    self.setNextSeq(recvTCPheader.seqNum + (recvTCPheader.data))
+                    recvbuff = sock.recvfrom(65535)
+                    continue
+
+                # print "^^^^^^^^^^^^^^^^^^^^^psh" + str(recvTCPheader.psh)
+                # print "syn:" + str(recvTCPheader.syn) + "ack:" + str(recvTCPheader.ack) + "fin:" + str(recvTCPheader.fin)
+                # packlen = packlen - 1
+                # print packlen
+                if recvTCPheader.psh == 1:
+                    break
+                else:
+                    recvbuff = sock.recvfrom(65535)
             else:
                 recvbuff = sock.recvfrom(65535)
         print len(recvbuff[0])
