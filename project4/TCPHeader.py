@@ -18,6 +18,8 @@ class TCPHeader:
         self.urgPointer = 0
         self.checkSum = 0
         self.dataOffSet = 5
+        self.option = 0
+        self.data = ""
 
     def setFlag(self, syn, ack, fin, psh, rst, urg):
         self.syn = syn
@@ -48,6 +50,12 @@ class TCPHeader:
 
     def getWindow(self):
         return self.window
+
+    def getCheckSum(self):
+        return self.checkSum
+
+    def setChecksum(self,checksum):
+        self.checkSum = checksum
 
     def fillPseTCPHeader(self,srcIP, dstIP, userData):
         OffSetRes = (self.dataOffSet << 4) + 0 # the ! in the pack format string means network order
@@ -81,20 +89,36 @@ class TCPHeader:
         return s
 
     def unpackTCPHeader(self,recvpack):
-        tcpHeader = recvpack[0][20:44]
-        tcp_hdr = unpack("!HHLLHHHHL",tcpHeader)
+        tcpHeader = recvpack[0][20:40]
+        tcp_hdr = unpack("!HHLLBBHHH",tcpHeader)
         srcPort = tcp_hdr[0]
         dstPort = tcp_hdr[1]
         seqNum = tcp_hdr[2]
         ackNum = tcp_hdr[3]
-        flag = tcp_hdr[4]
-        # TODO unpack(flag)
-        window = tcp_hdr[5]
-        checksum = tcp_hdr[6]
+        offset_res = tcp_hdr[4]
+        flags = tcp_hdr[5]
+        offset = offset_res >> 4
+        flagtmp = flags
+        urg = flags >> 5
+        flagtmp -= (urg << 5)
+        ack = flagtmp >> 4
+        flagtmp -= (ack <<4)
+        psh = flagtmp >> 3
+        flagtmp -= (psh << 3)
+        rst = flagtmp >> 2
+        flagtmp -= (rst << 2)
+        syn = flagtmp >> 1
+        flagtmp -= syn << 1
+        fin = flagtmp
+        window = tcp_hdr[6]
+        checksum = tcp_hdr[7]
         self.setSeq(seqNum)
         self.setAck(ackNum)
         self.setWindow(window)
         self.setPort(srcPort,dstPort)
-
-
-    # TODO def unpack (flag)
+        self.setFlag(syn,ack,fin,psh,rst,urg)
+        self.setChecksum(checksum)
+        if offset == 6:
+            self.option = recvpack[0][40:44]
+            self.data = recvpack[0][44:]
+        self.data = recvpack[0][40:]
