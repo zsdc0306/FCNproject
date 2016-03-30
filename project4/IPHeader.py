@@ -15,7 +15,7 @@ class IPHeader:
     id = random.randint(1,60000)
     headerChecksum = 0
     protocol = socket.IPPROTO_TCP
-    IPHeader = ""
+    IPHeaderContent = ""
 
     def __init__(self,srcIP="",dstIP=""):
         self.srcIP = srcIP
@@ -51,7 +51,7 @@ class IPHeader:
         # H:16bit
         # 4s:32bit
         IPHeader = pack('!BBHHHBBH4s4s',VER_IHL, self.typeOfService, self.totalLen, self.id, flag_fragOff, self.TTL, self.protocol, self.headerChecksum, srcAddr, dstAddr)
-        return IPHeader
+        self.IPHeaderContent = IPHeader
 
     def unpackIPHeader(self, recvpack):
         ipHeader = unpack("!BBHHHBBH4s4s",recvpack[0][0:20])

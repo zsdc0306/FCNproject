@@ -8,7 +8,8 @@ class TCPHeader:
         self.dstPort = dstPort
         self.seqNum = 0
         self.ackNum = 0
-        self.window = 4096
+        self.window = 65535
+        self.c_win = 1
         self.ack = 0
         self.syn = 0
         self.rst = 0
@@ -19,7 +20,9 @@ class TCPHeader:
         self.checkSum = 0
         self.dataOffSet = 5
         self.option = 0
+        self.TCPHeaderContent = ""
         self.data = ""
+        self.isOption = 0
 
     def setFlag(self, syn, ack, fin, psh, rst, urg):
         self.syn = syn
@@ -71,7 +74,7 @@ class TCPHeader:
         pseHeader_check = self.calchecksum(header)
         # make the tcp header again and fill the correct checksum - remember checksum is NOT in network byte order
         tcp_header = pack('!HHLLBBH' , self.srcPort, self.dstPort, self.seqNum, self.ackNum, OffSetRes, flags,  self.window) + pack('H', pseHeader_check) + pack('!H' , self.urgPointer)
-        return tcp_header
+        self.TCPHeaderContent = tcp_header
 
     # checksum functions needed for calculation checksum
     def calchecksum(self,msg):
@@ -118,7 +121,10 @@ class TCPHeader:
         self.setPort(srcPort,dstPort)
         self.setFlag(syn,ack,fin,psh,rst,urg)
         self.setChecksum(checksum)
+        IPheaderLen = 20
+        TCPHeaderLen = offset*4
         if offset == 6:
-            self.option = recvpack[0][40:44]
-            self.data = recvpack[0][44:]
-        self.data = recvpack[0][40:]
+            self.isOption = 1
+            self.option = recvpack[0][:44]
+            self.option = recvpack[0][IPheaderLen+TCPHeaderLen-4:IPheaderLen+TCPHeaderLen]
+        self.data = recvpack[0][IPheaderLen +TCPHeaderLen:]

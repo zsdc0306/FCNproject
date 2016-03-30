@@ -12,10 +12,12 @@ def RecvData(sendsock, recvsock):
     Response += ResponseHeader
     if isChunk(Response):
         if "\r\n0\r\n" in Response:
+            print "!$@$@$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
             return Response
         while 1:
             tmp = str(recvAck(sendsock,recvsock))
             if (tmp[0] == "0") or ("\n0\r\n" in tmp):
+                print "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH"
                 break
             else:
                 Response += tmp

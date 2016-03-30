@@ -14,7 +14,6 @@ srcPort = random.randint(50000,60000)
 dstPort = 80
 
 
-
 SYN = 1
 ACK = 2
 PSH = 3
@@ -22,20 +21,18 @@ FIN = 4
 
 TargetData = ""
 
-
-
 user_data = ""
 
 
 def setTCPConnection(sendsocket, recvsocket):
     synpack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
     #send SYN pack
-    synpack.TCPHeader.setSeq(0)
+    synSeq = random.randint(0,100000)
+    synpack.TCPHeader.setSeq(synSeq)
     synpack.TCPHeader.setAck(0)
     synpack.packPacket(SYN,"")
     pktContent = synpack.getPktCon()
     synpack.sendPack(sendsocket,pktContent,(dstIP,0))
-    recvAck(sendsocket, recvsocket)
     synAckPack = packet.Packet(dstIP,srcIP,dstPort,srcPort)
     synAckPack = synAckPack.recvPack(recvsocket)
     #to check whether the port and ip of receive packet is the oppisite we send
@@ -77,7 +74,7 @@ def recvAck(sendsocket, recvsocket):
     ackNum = recvPacket.TCPHeader.getAck()
     ackPack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
     ackPack.TCPHeader.setAck(seqNum+len(recvPacket.segmentData))
-    print "segment len" + str(len(recvPacket.segmentData))
+    # print "segment len" + str(len(recvPacket.segmentData))
     ackPack.TCPHeader.setSeq(ackNum)
     ackPack.packPacket(ACK,"")
     # print "send seq:" + str(ackPack.TCPHeader.seqNum)
