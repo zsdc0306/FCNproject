@@ -17,20 +17,22 @@ MSS = 536
 class Packet:
     """class of the packet, including TCPHeader, IPHeader"""
     def __init__(self,srcIP, dstIP, srcPort, dstPort):
-        self.TCPHeader = TCPHeader.TCPHeader()
-        self.IPHeader = IPHeader.IPHeader()
         self.srcIP = srcIP
         self.dstIP = dstIP
         self.srcPort = srcPort
         self.dstPort = dstPort
-        self.TCPHeader.setPort(self.srcPort,self.dstPort)
-        self.IPHeader.setIP(self.srcIP, self.dstIP)
+        self.recvTCPHeader = TCPHeader.TCPHeader()
+        self.recvIPHeader = IPHeader.IPHeader()
+        self.sendTCPHeader = TCPHeader.TCPHeader()
+        self.sendIPHeader = IPHeader.IPHeader()
+        self.recvTCPHeader.setPort(self.dstPort,self.srcPort)
+        self.recvIPHeader.setIP(self.dstIP, self.dstPort)
+        self.sendTCPHeader.setPort(self.srcPort,self.dstPort)
+        self.sendIPHeader.setIP(self.srcIP, self.dstIP)
         self.c_window = 1
         self.pktcontent=""
         self.segmentData = ""
         self.nextExpectedSeq = -1
-        self.segmentTCPBuffer = TCPHeader.TCPHeader()
-        self.segmentIPBuffer = IPHeader.IPHeader()
         self.isSegmentBuffer = 0
         self.pktTYPE = 2
 
@@ -66,10 +68,10 @@ class Packet:
             ack = 1
         elif PKT_TYPE == FIN:
             fin = 1
-        IPheader = self.IPHeader
+        IPheader = self.sendIPHeader
         IPheader.fillIPHeader()
         IPheaderContent = IPheader.IPHeaderContent
-        TCPheader = self.TCPHeader
+        TCPheader = self.sendTCPHeader
         TCPheader.setFlag(syn,ack,fin,psh,rst,urg)
         TCPheader.fillPseTCPHeader(self.srcIP, self.dstIP, userData)
         TCPheaderContent = TCPheader.TCPHeaderContent
@@ -79,16 +81,17 @@ class Packet:
         socket.sendto(content, addr)
 
     def sendPack(self,sock):
-        self.TCPHeader.setAck(self.TCPHeader.seqNum)
-        self.TCPHeader.setSeq(self.TCPHeader.ackNum)
+        self.sendTCPHeader.setAck(self.recvTCPHeader.seqNum)
+        self.sendTCPHeader.setSeq(self.recvTCPHeader.ackNum)
         self.packPacket(self.pktTYPE,"")
         sock.sendto(self.pktcontent,(self.dstIP,0))
 
 
     def startTransmit(self,sendsock,recvsock):
+        self.setTCPConnection(sendsock,recvsock)
         self.sendPack(sendsock)
         self.recvPack(recvsock)
-        while self.TCPHeader.fin != 1:
+        while self.recvTCPHeader.fin != 1:
             self.sendPack(sendsock)
             self.recvPack(recvsock)
         return self.segmentData
@@ -114,15 +117,14 @@ class Packet:
                 recvIPheader.unpackIPHeader(recvbuff)
                 recvTCPheader.unpackTCPHeader(recvbuff)
                 if recvTCPheader.syn == 1 or recvTCPheader.fin ==1:
-                    self.TCPHeader = recvTCPheader
-                    print self.TCPHeader.seqNum
-                    self.IPHeader = recvIPheader
+                    self.recvTCPHeader = recvTCPheader
+                    self.recvIPHeader = recvIPheader
                     return
-                if recvTCPheader.seqNum != self.TCPHeader.ackNum or recvTCPheader.ackNum != (self.TCPHeader.seqNum+len(self.TCPHeader.data)):
+                if recvTCPheader.seqNum != self.sendTCPHeader.ackNum or recvTCPheader.ackNum != (self.sendTCPHeader.seqNum+len(self.sendTCPHeader.data)):
                     return
                 else:
-                    self.TCPHeader = recvTCPheader
-                    self.IPHeader = recvIPheader
+                    self.recvTCPHeader = recvTCPheader
+                    self.recvIPHeader = recvIPheader
                     self.segmentData += recvTCPheader.data
                     print "segment data:^^^^^^^^^^^^^^^^^^^^^^^^^^^^" + recvTCPheader.data
                     return
@@ -143,23 +145,23 @@ class Packet:
 
     def setTCPConnection(self,sendsocket,recvsocket):
         synSeq = 0
-        self.TCPHeader.setSeq(synSeq)
-        self.TCPHeader.setAck(0)
+        self.sendTCPHeader.setSeq(synSeq)
+        self.sendTCPHeader.setAck(0)
         self.packPacket(SYN, "")
         # connectionPack.rawSend(sendsocket,connectionPack.pktcontent,(dstIP,0))
         sendsocket.sendto(self.pktcontent,(self.dstIP,0))
         self.recvPack(recvsocket)
-        seqNum = self.TCPHeader.seqNum
-        ackNum = self.TCPHeader.ackNum
-        self.TCPHeader.setSeq(ackNum)
-        self.TCPHeader.setAck(seqNum+1)
+        seqNum = self.recvTCPHeader.seqNum
+        ackNum = self.recvTCPHeader.ackNum
+        self.sendTCPHeader.setSeq(ackNum)
+        self.sendTCPHeader.setAck(seqNum+1)
         self.packPacket(ACK, "")
         # connectionPack.rawSend(sendsocket,connectionPack.pktcontent,(dstIP,0))
-        sendsocket.sendto(self.pktcontent,(self.srcIP,0))
+        sendsocket.sendto(self.pktcontent,(self.dstIP,0))
         # print connectionPack.pktcontent
         # print connectionPack.TCPHeader.ackNum
         print "connection set"
-        return self
+        return
 
 
 

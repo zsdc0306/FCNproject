@@ -18,25 +18,25 @@ ACK = 2
 PSH = 3
 FIN = 4
 
-def createPacket(seq,ack,TYPE,userData):
-    pack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
-    pack.TCPHeader.setAck(ack)
-    pack.TCPHeader.setSeq(seq)
-    pack.packPacket(TYPE,userData)
-    return pack
+# def createPacket(seq,ack,TYPE,userData):
+#     pack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
+#     pack.TCPHeader.setAck(ack)
+#     pack.TCPHeader.setSeq(seq)
+#     pack.packPacket(TYPE,userData)
+#     return pack
 
 sendsock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
 recvsock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
 
 pack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
-
-conAckPack = pack.setTCPConnection(sendsock,recvsock)
-print "connection set"
 user_data_get = HTTP.get("http://david.choffnes.com/")
-getpack = createPacket(conAckPack.TCPHeader.getSeq(),conAckPack.TCPHeader.getAck(),PSH,user_data_get)
+pack.sendTCPHeader.data = user_data_get
+pack.startTransmit(sendsock,recvsock)
+print pack.segmentData
+# getpack = createPacket(conAckPack.TCPHeader.getSeq(),conAckPack.TCPHeader.getAck(),PSH,user_data_get)
 
-pkt = getpack.startTransmit(sendsock,recvsock)
-print pkt
+# pkt = getpack.startTransmit(sendsock,recvsock)
+# print pkt
 
 
 
