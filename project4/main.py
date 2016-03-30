@@ -28,20 +28,23 @@ def createPacket(seq,ack,TYPE,userData):
 sendsock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
 recvsock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
 
+pack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
 
-conAckPack = connection.setTCPConnection(sendsock,recvsock)
+conAckPack = pack.setTCPConnection(sendsock,recvsock)
 print "connection set"
 user_data_get = HTTP.get("http://david.choffnes.com/")
 getpack = createPacket(conAckPack.TCPHeader.getSeq(),conAckPack.TCPHeader.getAck(),PSH,user_data_get)
-getpack.sendPack(sendsock,getpack.getPktCon(),(dstIP,0))
 
-RequestPack = createPacket(getpack..TCPHeader.getSeq(),conAckPack.TCPHeader.getAck(),ACK,"")
+pkt = getpack.startTransmit(sendsock,recvsock)
+print pkt
+
+
 
 # getAckPack = createPacket(getpack.TCPHeader.getAck(),getpack.TCPHeader.getSeq()+len(user_data_get),ACK,"")
-data =""
-buffer = HTTP.RecvData(sendsock,recvsock)
-while buffer:
-    data = HTTP.RecvData(sendsock,recvsock)
-    data += data
-print data
+# data =""
+# buffer = HTTP.RecvData(sendsock,recvsock)
+# while buffer:
+#     data = HTTP.RecvData(sendsock,recvsock)
+#     data += data
+# print data
 

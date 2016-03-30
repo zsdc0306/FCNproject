@@ -23,28 +23,51 @@ TargetData = ""
 
 user_data = ""
 
+#
+# def setTCPConnection(sendsocket, recvsocket):
+#     synpack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
+#     #send SYN pack
+#     synSeq = random.randint(0,100000)
+#     synpack.TCPHeader.setSeq(synSeq)
+#     synpack.TCPHeader.setAck(0)
+#     synpack.packPacket(SYN,"")
+#     pktContent = synpack.getPktCon()
+#     synpack.rawSend(sendsocket,pktContent,(dstIP,0))
+#     synAckPack = packet.Packet(dstIP,srcIP,dstPort,srcPort)
+#     synAckPack = synAckPack.recvPack(recvsocket)
+#     #to check whether the port and ip of receive packet is the oppisite we send
+#     seqNum = synAckPack.TCPHeader.getSeq()
+#     ackNum = synAckPack.TCPHeader.getAck()
+#     ackPack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
+#     ackPack.TCPHeader.setAck(seqNum+1)
+#     ackPack.TCPHeader.setSeq(ackNum)
+#     ackPack.packPacket(ACK,"")
+#     pktContent = ackPack.getPktCon()
+#     ackPack.rawSend(sendsocket,pktContent,(dstIP,0))
+#     return ackPack
 
-def setTCPConnection(sendsocket, recvsocket):
-    synpack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
-    #send SYN pack
-    synSeq = random.randint(0,100000)
-    synpack.TCPHeader.setSeq(synSeq)
-    synpack.TCPHeader.setAck(0)
-    synpack.packPacket(SYN,"")
-    pktContent = synpack.getPktCon()
-    synpack.sendPack(sendsocket,pktContent,(dstIP,0))
-    synAckPack = packet.Packet(dstIP,srcIP,dstPort,srcPort)
-    synAckPack = synAckPack.recvPack(recvsocket)
-    #to check whether the port and ip of receive packet is the oppisite we send
-    seqNum = synAckPack.TCPHeader.getSeq()
-    ackNum = synAckPack.TCPHeader.getAck()
-    ackPack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
-    ackPack.TCPHeader.setAck(seqNum+1)
-    ackPack.TCPHeader.setSeq(ackNum)
-    ackPack.packPacket(ACK,"")
-    pktContent = ackPack.getPktCon()
-    ackPack.sendPack(sendsocket,pktContent,(dstIP,0))
-    return ackPack
+
+def setTCPConnection(sendsocket,recvsocket):
+    connectionPack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
+    synSeq = 0
+    connectionPack.TCPHeader.setSeq(synSeq)
+    connectionPack.TCPHeader.setAck(0)
+    connectionPack.packPacket(SYN, "")
+    # connectionPack.rawSend(sendsocket,connectionPack.pktcontent,(dstIP,0))
+    sendsocket.sendto(connectionPack.pktcontent,(dstIP,0))
+    connectionPack.recvPack(recvsocket)
+    seqNum = connectionPack.TCPHeader.seqNum
+    ackNum = connectionPack.TCPHeader.ackNum
+    connectionPack.TCPHeader.setSeq(ackNum)
+    connectionPack.TCPHeader.setAck(seqNum+1)
+    connectionPack.packPacket(ACK, "")
+    # connectionPack.rawSend(sendsocket,connectionPack.pktcontent,(dstIP,0))
+    sendsocket.sendto(connectionPack.pktcontent,(dstIP,0))
+    # print connectionPack.pktcontent
+    # print connectionPack.TCPHeader.ackNum
+    print "connection set"
+    return connectionPack
+
 
     #******************************************************************
     # pack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
