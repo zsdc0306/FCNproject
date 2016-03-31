@@ -28,11 +28,17 @@ FIN = 4
 sendsock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
 recvsock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
 
-pack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
-user_data_get = HTTP.get("http://david.choffnes.com/")
-pack.sendTCPHeader.data = user_data_get
-pack.startTransmit(sendsock,recvsock)
-print pack.segmentData
+
+con = connection.Ccnnection(srcIP,dstIP,srcPort,dstPort)
+con.startTransmit(sendsock,recvsock)
+
+#
+#
+# pack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
+# user_data_get = HTTP.get("http://david.choffnes.com/")
+# pack.sendTCPHeader.data = user_data_get
+# pack.startTransmit(sendsock,recvsock)
+# print pack.segmentData
 # getpack = createPacket(conAckPack.TCPHeader.getSeq(),conAckPack.TCPHeader.getAck(),PSH,user_data_get)
 
 # pkt = getpack.startTransmit(sendsock,recvsock)

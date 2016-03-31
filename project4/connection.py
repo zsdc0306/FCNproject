@@ -13,6 +13,14 @@ import IPHeader
 import TCPHeader
 
 
+SYN = 1
+ACK = 2
+PSH = 3
+FIN = 4
+
+TargetData = ""
+
+user_data = ""
 
 dstIP = "216.97.236.245"
 srcIP = re.findall("inet addr:(.*)  Bcast", commands.getoutput('/sbin/ifconfig'))[0]
@@ -126,14 +134,6 @@ class Ccnnection:
 
 
 
-SYN = 1
-ACK = 2
-PSH = 3
-FIN = 4
-
-TargetData = ""
-
-user_data = ""
 
 #
 # def setTCPConnection(sendsocket, recvsocket):
