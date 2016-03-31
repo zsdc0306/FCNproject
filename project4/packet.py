@@ -27,7 +27,7 @@ class Packet:
         self.IPHeader.setIP(self.srcIP, self.dstIP)
         self.c_window = 1
         self.pktcontent=""
-        self.pktTYPE = 2
+        self.pktTYPE = 0
 
 
     def getPktCon(self):
@@ -52,7 +52,9 @@ class Packet:
             ack = 1
         elif pktType == FIN:
             fin = 1
+        print "syn=" + str(syn)
         self.TCPHeader.setFlag(syn,ack,fin,psh,rst,urg)
+        self.pktTYPE = pktType
 
     def packPacket(self, userData):
         IPheader = self.IPHeader

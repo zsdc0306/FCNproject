@@ -35,8 +35,8 @@ class Ccnnection:
         self.dstIP = dstIP
         self.srcPort = srcPort
         self.dstPort = dstPort
-        self.recvPacket = packet.Packet(srcIP,dstIP,srcPort,dstPort)
-        self.sendPacket = packet.Packet(dstIP,srcIP,dstPort,srcPort)
+        self.sendPacket = packet.Packet(srcIP,dstIP,srcPort,dstPort)
+        self.recvPacket = packet.Packet(dstIP,srcIP,dstPort,srcPort)
         self.synPacket = packet.Packet(dstIP,srcIP,dstPort,srcPort)
         self.finPacket = packet.Packet(dstIP,srcIP,dstPort,srcPort)
         self.recvedPackCon = ""
@@ -76,6 +76,8 @@ class Ccnnection:
                 else:
                     self.recvPacket = recvPack
                     self.recvedPackCon += recvPack.TCPHeader.data
+                    self.sendPacket.TCPHeader.setSeq(recvPack.TCPHeader.ackNum)
+                    self.sendPacket.TCPHeader.setAck(recvPack.TCPHeader.seqNum + len(recvPack.TCPHeader.data))
                     print "segment data:^^^^^^^^^^^^^^^^^^^^^^^^^^^^" + recvPack.TCPHeader.data
                     return
             else:
