@@ -39,13 +39,17 @@ class Ccnnection:
         self.recvsocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
         self.recvedPackCon = ""
 
-    def setSendPack(self,userData):
+    def setRequestPack(self,userData):
         self.sendPacket.setPktTpye(PSH)
-        self.sendPacket.TCPHeader.setSeq(self.synPacket.TCPHeader.getSeq())
-        self.sendPacket.TCPHeader.setAck(self.synPacket.TCPHeader.getAck())
         self.sendPacket.userData = userData
         self.sendPacket.packPacket()
 
+    def setAckPack(self):
+        self.sendPacket.setPktTpye(ACK)
+        self.sendPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)
+        self.sendPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + len(self.recvPacket.TCPHeader.data))
+        self.sendPacket.userData = ""
+        self.sendPacket.packPacket()
 
     def startTransmit(self):
         self.sendPacket.sendPack(self.sendsocket)
@@ -53,7 +57,15 @@ class Ccnnection:
         while self.recvPacket.TCPHeader.fin != 1:
             self.sendPacket.sendPack(self.sendsocket)
             self.recvPack()
-        return self.recvedPackCon
+        print "done"
+        return
+
+    def setTearDown(self):
+        self.finPacket.setPktTpye(FIN)
+        self.finPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)
+        self.finPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + 1)
+        self.finPacket.packPacket()
+        self.finPacket.sendPack(self.sendsocket)
 
 
     def recvPack(self):
@@ -71,18 +83,24 @@ class Ccnnection:
             recvSrcPort = tcpHeader[0]
             recvDstPort = tcpHeader[1]
             if recvSrcIP == self.dstIP and recvDstIP == self.srcIP and recvSrcPort == self.dstPort and recvDstPort == self.srcPort:
-                recvPack = packet.Packet(recvSrcIP,recvDstIP,recvSrcPort,recvDstPort)
+                recvPack = packet.Packet(self.dstIP,self.srcIP,self.dstPort,self.srcPort)
                 recvPack.unPackPacket(recvbuff)
                 if recvPack.TCPHeader.syn == 1 or recvPack.TCPHeader.fin ==1:
                     self.recvPacket = recvPack
+                    self.sendPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)
+                    self.sendPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum+1)
+                    self.sendPacket.setPktTpye(ACK)
                     return
+                if recvPack.TCPHeader.ack == 1 and recvPack.TCPHeader.data == "":
+                    recvbuff = self.recvsocket.recvfrom(65535)
+                    self.recvPacket = recvPack
+                    continue
                 if recvPack.TCPHeader.seqNum != self.sendPacket.TCPHeader.ackNum or recvPack.TCPHeader.ackNum != (self.sendPacket.TCPHeader.seqNum+len(self.sendPacket.TCPHeader.data)):
                     return
                 else:
                     self.recvPacket = recvPack
                     self.recvedPackCon += recvPack.TCPHeader.data
-                    self.sendPacket.TCPHeader.setSeq(recvPack.TCPHeader.ackNum)
-                    self.sendPacket.TCPHeader.setAck(recvPack.TCPHeader.seqNum + len(recvPack.TCPHeader.data))
+                    self.setAckPack()
                     print "segment data:^^^^^^^^^^^^^^^^^^^^^^^^^^^^" + recvPack.TCPHeader.data
                     return
             else:
@@ -108,11 +126,6 @@ class Ccnnection:
         # connectionPack.rawSend(sendsocket,connectionPack.pktcontent,(dstIP,0))
         self.synPacket.sendPack(self.sendsocket)
         self.recvPack()
-        seqNum = self.recvPacket.TCPHeader.seqNum
-        ackNum = self.recvPacket.TCPHeader.ackNum
-        self.sendPacket.TCPHeader.setSeq(ackNum)
-        self.sendPacket.TCPHeader.setAck(seqNum+1)
-        self.sendPacket.setPktTpye(ACK)
         self.sendPacket.sendPack(self.sendsocket)
         # connectionPack.rawSend(sendsocket,connectionPack.pktcontent,(dstIP,0))
         # print connectionPack.pktcontent

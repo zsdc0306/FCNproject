@@ -25,7 +25,7 @@ class HTTPRequest:
         con = connection.Ccnnection(self.dstIP,self.dstPort)
         con.setTCPConnection()
         requestData = self.get()
-        con.setSendPack(requestData)
+        con.setRequestPack(requestData)
         con.startTransmit()
 
 
