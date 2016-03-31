@@ -8,11 +8,6 @@ import connection
 
 
 
-dstIP = connection.dstIP
-srcIP = connection.srcIP
-dstPort = 80
-srcPort = connection.srcPort
-
 SYN = 1
 ACK = 2
 PSH = 3
@@ -25,12 +20,14 @@ FIN = 4
 #     pack.packPacket(TYPE,userData)
 #     return pack
 
-sendsock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
-recvsock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
 
 
-con = connection.Ccnnection(srcIP,dstIP,srcPort,dstPort)
-con.startTransmit(sendsock,recvsock)
+
+
+Request = HTTP.HTTPRequest("http://david.choffnes.com/")
+Request.sendGetRequest()
+
+
 
 #
 #

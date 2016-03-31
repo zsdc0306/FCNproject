@@ -11,6 +11,7 @@ from struct import *
 from socket import *
 import IPHeader
 import TCPHeader
+import socket
 
 
 SYN = 1
@@ -20,39 +21,43 @@ FIN = 4
 
 TargetData = ""
 
-user_data = ""
 
-dstIP = "216.97.236.245"
-srcIP = re.findall("inet addr:(.*)  Bcast", commands.getoutput('/sbin/ifconfig'))[0]
-srcPort = random.randint(50000,60000)
-dstPort = 80
 
 
 class Ccnnection:
     """class of the packet, including TCPHeader, IPHeader"""
-    def __init__(self,srcIP, dstIP, srcPort, dstPort):
-        self.srcIP = srcIP
+    def __init__(self, dstIP, dstPort):
+        self.srcIP = re.findall("inet addr:(.*)  Bcast", commands.getoutput('/sbin/ifconfig'))[0]
         self.dstIP = dstIP
-        self.srcPort = srcPort
+        self.srcPort = random.randint(50000,60000)
         self.dstPort = dstPort
-        self.sendPacket = packet.Packet(srcIP,dstIP,srcPort,dstPort)
-        self.recvPacket = packet.Packet(dstIP,srcIP,dstPort,srcPort)
-        self.synPacket = packet.Packet(dstIP,srcIP,dstPort,srcPort)
-        self.finPacket = packet.Packet(dstIP,srcIP,dstPort,srcPort)
+        self.sendPacket = packet.Packet(self.srcIP,dstIP,self.srcPort,dstPort)
+        self.recvPacket = packet.Packet(dstIP,self.srcIP,dstPort,self.srcPort)
+        self.synPacket = packet.Packet(self.srcIP,dstIP,self.srcPort,dstPort)
+        self.finPacket = packet.Packet(self.srcIP,dstIP,self.srcPort,dstPort)
+        self.sendsocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
+        self.recvsocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
         self.recvedPackCon = ""
 
-    def startTransmit(self,sendsock,recvsock):
-        self.setTCPConnection(sendsock,recvsock)
-        self.sendPacket.sendPack(sendsock)
-        self.recvPack(recvsock)
+    def setSendPack(self,userData):
+        self.sendPacket.setPktTpye(PSH)
+        self.sendPacket.TCPHeader.setSeq(self.synPacket.TCPHeader.getSeq())
+        self.sendPacket.TCPHeader.setAck(self.synPacket.TCPHeader.getAck())
+        self.sendPacket.userData = userData
+        self.sendPacket.packPacket()
+
+
+    def startTransmit(self):
+        self.sendPacket.sendPack(self.sendsocket)
+        self.recvPack()
         while self.recvPacket.TCPHeader.fin != 1:
-            self.sendPacket.sendPack(sendsock)
-            self.recvPack(recvsock)
+            self.sendPacket.sendPack(self.sendsocket)
+            self.recvPack()
         return self.recvedPackCon
 
 
-    def recvPack(self,sock):
-        recvbuff= sock.recvfrom(65535)
+    def recvPack(self):
+        recvbuff= self.recvsocket.recvfrom(65535)
         # win = self.c_window
         startTime = time.time()
         while 1:
@@ -81,7 +86,7 @@ class Ccnnection:
                     print "segment data:^^^^^^^^^^^^^^^^^^^^^^^^^^^^" + recvPack.TCPHeader.data
                     return
             else:
-                recvbuff = sock.recvfrom(65535)
+                recvbuff = self.recvsocket.recvfrom(65535)
 
         # TODO if not checkChecksum(recvbuff):
         # tcpHeader = recvpack[0][20:44]
@@ -95,21 +100,20 @@ class Ccnnection:
 
 
 
-    def setTCPConnection(self,sendsocket,recvsocket):
-        synSeq = 0
+    def setTCPConnection(self):
+        synSeq = random.randint(10000,300000)
         self.synPacket.TCPHeader.setSeq(synSeq)
         self.synPacket.TCPHeader.setAck(0)
         self.synPacket.setPktTpye(SYN)
-        self.synPacket.packPacket("")
         # connectionPack.rawSend(sendsocket,connectionPack.pktcontent,(dstIP,0))
-        self.synPacket.sendPack(sendsocket)
-        self.recvPack(recvsocket)
+        self.synPacket.sendPack(self.sendsocket)
+        self.recvPack()
         seqNum = self.recvPacket.TCPHeader.seqNum
         ackNum = self.recvPacket.TCPHeader.ackNum
         self.sendPacket.TCPHeader.setSeq(ackNum)
         self.sendPacket.TCPHeader.setAck(seqNum+1)
         self.sendPacket.setPktTpye(ACK)
-        self.sendPacket.sendPack(sendsocket)
+        self.sendPacket.sendPack(self.sendsocket)
         # connectionPack.rawSend(sendsocket,connectionPack.pktcontent,(dstIP,0))
         # print connectionPack.pktcontent
         # print connectionPack.TCPHeader.ackNum

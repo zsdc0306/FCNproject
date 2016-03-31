@@ -28,6 +28,7 @@ class Packet:
         self.c_window = 1
         self.pktcontent=""
         self.pktTYPE = 0
+        self.userData = ""
 
 
     def getPktCon(self):
@@ -52,24 +53,24 @@ class Packet:
             ack = 1
         elif pktType == FIN:
             fin = 1
-        print "syn=" + str(syn)
         self.TCPHeader.setFlag(syn,ack,fin,psh,rst,urg)
         self.pktTYPE = pktType
 
-    def packPacket(self, userData):
+    def packPacket(self):
         IPheader = self.IPHeader
         IPheader.fillIPHeader()
         IPheaderContent = IPheader.IPHeaderContent
         TCPheader = self.TCPHeader
-        TCPheader.fillPseTCPHeader(self.srcIP, self.dstIP, userData)
+        TCPheader.fillPseTCPHeader(self.srcIP, self.dstIP, self.userData)
         TCPheaderContent = TCPheader.TCPHeaderContent
-        self.pktcontent = IPheaderContent + TCPheaderContent +userData
+        self.TCPHeader.data = self.userData
+        self.pktcontent = IPheaderContent + TCPheaderContent +self.userData
 
     def rawSend(self, socket, content, addr):
         socket.sendto(content, addr)
 
     def sendPack(self,sock):
-        self.packPacket(self.TCPHeader.data)
+        self.packPacket()
         sock.sendto(self.pktcontent,(self.dstIP,0))
 
     def unPackPacket(self,pack):
