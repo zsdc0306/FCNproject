@@ -1,6 +1,4 @@
 import socket
-import re
-from connection import recvAck
 import urlparse
 
 

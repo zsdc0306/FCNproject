@@ -21,19 +21,12 @@ class Packet:
         self.dstIP = dstIP
         self.srcPort = srcPort
         self.dstPort = dstPort
-        self.recvTCPHeader = TCPHeader.TCPHeader()
-        self.recvIPHeader = IPHeader.IPHeader()
-        self.sendTCPHeader = TCPHeader.TCPHeader()
-        self.sendIPHeader = IPHeader.IPHeader()
-        self.recvTCPHeader.setPort(self.dstPort,self.srcPort)
-        self.recvIPHeader.setIP(self.dstIP, self.dstPort)
-        self.sendTCPHeader.setPort(self.srcPort,self.dstPort)
-        self.sendIPHeader.setIP(self.srcIP, self.dstIP)
+        self.TCPHeader = TCPHeader.TCPHeader()
+        self.IPHeader = IPHeader.IPHeader()
+        self.TCPHeader.setPort(self.srcPort,self.dstPort)
+        self.IPHeader.setIP(self.srcIP, self.dstIP)
         self.c_window = 1
         self.pktcontent=""
-        self.segmentData = ""
-        self.nextExpectedSeq = -1
-        self.isSegmentBuffer = 0
         self.pktTYPE = 2
 
 
@@ -45,34 +38,27 @@ class Packet:
         self.segmentIPBuffer = IPHeader
         self.segmentIPBuffer = 1
 
-
-    def getSegData(self):
-        return self.segmentData
-
     def setNextSeq(self,seq):
         self.nextExpectedSeq = seq
 
-    def packPacket(self,PKT_TYPE, userData):
-        ack = 0
-        syn = 0
-        rst = 0
-        psh = 0
-        fin = 0
-        urg = 0
-        if PKT_TYPE == SYN:
+    def setPktTpye(self,pktType):
+        syn,ack,fin,psh,rst,urg = 0,0,0,0,0,0
+        if pktType == SYN:
             syn = 1
-        elif PKT_TYPE == ACK:
+        elif pktType == ACK:
             ack = 1
-        elif PKT_TYPE == PSH:
+        elif pktType == PSH:
             psh = 1
             ack = 1
-        elif PKT_TYPE == FIN:
+        elif pktType == FIN:
             fin = 1
-        IPheader = self.sendIPHeader
+        self.TCPHeader.setFlag(syn,ack,fin,psh,rst,urg)
+
+    def packPacket(self, userData):
+        IPheader = self.IPHeader
         IPheader.fillIPHeader()
         IPheaderContent = IPheader.IPHeaderContent
-        TCPheader = self.sendTCPHeader
-        TCPheader.setFlag(syn,ack,fin,psh,rst,urg)
+        TCPheader = self.TCPHeader
         TCPheader.fillPseTCPHeader(self.srcIP, self.dstIP, userData)
         TCPheaderContent = TCPheader.TCPHeaderContent
         self.pktcontent = IPheaderContent + TCPheaderContent +userData
@@ -81,90 +67,13 @@ class Packet:
         socket.sendto(content, addr)
 
     def sendPack(self,sock):
-        self.sendTCPHeader.setAck(self.recvTCPHeader.seqNum)
-        self.sendTCPHeader.setSeq(self.recvTCPHeader.ackNum)
-        self.packPacket(self.pktTYPE,"")
+        self.packPacket(self.TCPHeader.data)
         sock.sendto(self.pktcontent,(self.dstIP,0))
 
-
-    def startTransmit(self,sendsock,recvsock):
-        self.setTCPConnection(sendsock,recvsock)
-        self.sendPack(sendsock)
-        self.recvPack(recvsock)
-        while self.recvTCPHeader.fin != 1:
-            self.sendPack(sendsock)
-            self.recvPack(recvsock)
-        return self.segmentData
-
-
-    def recvPack(self,sock):
-        recvbuff= sock.recvfrom(65535)
-        # win = self.c_window
-        startTime = time.time()
-        while 1:
-            if time.time() - startTime > 60000: #set timeout
-                self.c_window = 1               #reset congestion window
-                break
-            ipHeader = unpack("!BBHHHBBH4s4s",recvbuff[0][0:20])
-            tcpHeader = unpack("!HHLLHHHH",recvbuff[0][20:40])
-            recvSrcIP = inet_ntoa(ipHeader[8])
-            recvDstIP = inet_ntoa(ipHeader[9])
-            recvSrcPort = tcpHeader[0]
-            recvDstPort = tcpHeader[1]
-            if recvSrcIP == self.dstIP and recvDstIP == self.srcIP and recvSrcPort == self.dstPort and recvDstPort == self.srcPort:
-                recvIPheader = IPHeader.IPHeader()
-                recvTCPheader = TCPHeader.TCPHeader()
-                recvIPheader.unpackIPHeader(recvbuff)
-                recvTCPheader.unpackTCPHeader(recvbuff)
-                if recvTCPheader.syn == 1 or recvTCPheader.fin ==1:
-                    self.recvTCPHeader = recvTCPheader
-                    self.recvIPHeader = recvIPheader
-                    return
-                if recvTCPheader.seqNum != self.sendTCPHeader.ackNum or recvTCPheader.ackNum != (self.sendTCPHeader.seqNum+len(self.sendTCPHeader.data)):
-                    return
-                else:
-                    self.recvTCPHeader = recvTCPheader
-                    self.recvIPHeader = recvIPheader
-                    self.segmentData += recvTCPheader.data
-                    print "segment data:^^^^^^^^^^^^^^^^^^^^^^^^^^^^" + recvTCPheader.data
-                    return
-            else:
-                recvbuff = sock.recvfrom(65535)
-
-        # TODO if not checkChecksum(recvbuff):
-        # tcpHeader = recvpack[0][20:44]
-        # tcp_hdr = unpack("!HHLLBBHHHL",tcpHeader)
-        # srcPort = tcp_hdr[0]
-        # dstPort = tcp_hdr[1]
-        # seqNum = tcp_hdr[2]
-        # ackNum = tcp_hdr[3]
-        # print ackNum
-        # window = tcp_hdr[5]
-
-
-
-    def setTCPConnection(self,sendsocket,recvsocket):
-        synSeq = 0
-        self.sendTCPHeader.setSeq(synSeq)
-        self.sendTCPHeader.setAck(0)
-        self.packPacket(SYN, "")
-        # connectionPack.rawSend(sendsocket,connectionPack.pktcontent,(dstIP,0))
-        sendsocket.sendto(self.pktcontent,(self.dstIP,0))
-        self.recvPack(recvsocket)
-        seqNum = self.recvTCPHeader.seqNum
-        ackNum = self.recvTCPHeader.ackNum
-        self.sendTCPHeader.setSeq(ackNum)
-        self.sendTCPHeader.setAck(seqNum+1)
-        self.packPacket(ACK, "")
-        # connectionPack.rawSend(sendsocket,connectionPack.pktcontent,(dstIP,0))
-        sendsocket.sendto(self.pktcontent,(self.dstIP,0))
-        # print connectionPack.pktcontent
-        # print connectionPack.TCPHeader.ackNum
-        print "connection set"
-        return
-
-
-
+    def unPackPacket(self,pack):
+        self.pktcontent = pack[0]
+        self.IPHeader.unpackIPHeader(pack)
+        self.TCPHeader.unpackTCPHeader(pack)
 
 
 
