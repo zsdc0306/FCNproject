@@ -3,6 +3,7 @@ import urlparse
 import commands
 import connection
 import _random
+import sys
 
 dstIP = "216.97.236.245"
 
@@ -16,6 +17,7 @@ class HTTPRequest:
         self.urlStr = url
         self.url = urlparse.urlparse(self.urlStr)
         self.host = self.url.netloc
+        self.path = self.url.path
         self.dstPort = 80
         self.dstIP = dstIP
         self.requestContent = ""
@@ -27,6 +29,21 @@ class HTTPRequest:
         requestData = self.get()
         con.setRequestPack(requestData)
         con.startTransmit()
+        data = con.recvedPackCon
+        self.processHTML(data)
+
+    def processHTML(self,content):
+        HTMLHeaderIndex = content.find('\r\n\r\n')
+        HTMLResponseHeader = content[:HTMLHeaderIndex]
+        HTMLContent = content[HTMLHeaderIndex+4:]
+        if HTMLResponseHeader.find("HTTP/1.1 200 OK") == -1:
+            print "HTTP error"
+            sys.exit()
+        else:
+            #HTMLContent = self.processHTML(HTMLContent)
+            self.writeToFile(HTMLContent)
+
+    # TODO def processHTML(self,content)
 
 
     # def RecvData(self, sendsock, recvsock):
@@ -79,7 +96,7 @@ class HTTPRequest:
 
     def get(self):
         host = self.host
-        path = self.url.path
+        path = self.path
         if path == '':
             path = '/'
         HTTP_Protocol = 'GET '+path+' HTTP/1.1'
@@ -98,3 +115,27 @@ class HTTPRequest:
         Request = CRLF.join(Request_Header)
         self.requestContent = Request
         return Request
+
+    def writeToFile(self,content):
+        path = self.path
+        if path == '' or path == '/':
+            filename = 'index.html'
+        else:
+            filename = path.split('/')[-1]
+
+        targetFile = open(filename,'w')
+        targetFile.write(content)
+        print 'done'
+
+    # if len(sys.argv)<2:
+# 	print "You need input target url"
+# 	sys.exit(0)
+#
+# url = urlparse.urlparse(sys.argv[1])
+# dstHost = url.netloc
+# dstIP = socket.gethostbyname(dstHost)
+# path = url.path
+# if url.path == '' or path[-1] == '/':
+# 	filename = 'index.html'
+# else:
+# 	filename = path.split('/')[-1]

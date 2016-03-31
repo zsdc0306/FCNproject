@@ -47,7 +47,10 @@ class Ccnnection:
     def setAckPack(self):
         self.sendPacket.setPktTpye(ACK)
         self.sendPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)
-        self.sendPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + len(self.recvPacket.TCPHeader.data))
+        if self.recvPacket.TCPHeader.fin == 1 or self.recvPacket.TCPHeader.syn == 1:
+            self.sendPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + 1)
+        else:
+            self.sendPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + len(self.recvPacket.TCPHeader.data))
         self.sendPacket.userData = ""
         self.sendPacket.packPacket()
 
@@ -57,15 +60,12 @@ class Ccnnection:
         while self.recvPacket.TCPHeader.fin != 1:
             self.sendPacket.sendPack(self.sendsocket)
             self.recvPack()
+        self.setAckPack()
+        self.sendPacket.sendPack(self.sendsocket)
+        self.setTearDown()
         print "done"
         return
 
-    def setTearDown(self):
-        self.finPacket.setPktTpye(FIN)
-        self.finPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)
-        self.finPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + 1)
-        self.finPacket.packPacket()
-        self.finPacket.sendPack(self.sendsocket)
 
 
     def recvPack(self):
@@ -135,7 +135,12 @@ class Ccnnection:
 
 
 
-
+    def setTearDown(self):
+        self.finPacket.setPktTpye(FIN)
+        self.finPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)
+        self.finPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + 1)
+        self.finPacket.packPacket()
+        self.finPacket.sendPack(self.sendsocket)
 
 
 
