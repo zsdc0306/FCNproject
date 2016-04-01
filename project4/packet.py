@@ -7,12 +7,12 @@ from socket import *
 import binascii
 import time
 
+
+#flag of packet type
 SYN = 1
 ACK = 2
 PSH = 3
 FIN = 4
-MSS = 536
-
 
 class Packet:
     """class of the packet, including TCPHeader, IPHeader"""
@@ -25,19 +25,15 @@ class Packet:
         self.IPHeader = IPHeader.IPHeader()
         self.TCPHeader.setPort(self.srcPort,self.dstPort)
         self.IPHeader.setIP(self.srcIP, self.dstIP)
-        self.c_window = 1
-        self.pktcontent=""
-        self.pktTYPE = 0
-        self.userData = ""
+        self.c_window = 1                                            # congesting window, initial set as 1
+        self.pktcontent=""                                           # the string format of the packet, used to send to the server
+        self.pktTYPE = 0                                             # pktTYPE, as SYN,FIN,ACK,PSH
+        self.userData = ""                                           #user data, it is the same as TC{Header.data
 
 
     def getPktCon(self):
         return self.pktcontent
 
-    def setSegmentBuffer(self,TCPHeader,IPHeader):
-        self.segmentTCPBuffer = TCPHeader
-        self.segmentIPBuffer = IPHeader
-        self.segmentIPBuffer = 1
 
     def setNextSeq(self,seq):
         self.nextExpectedSeq = seq
@@ -53,9 +49,13 @@ class Packet:
             ack = 1
         elif pktType == FIN:
             fin = 1
+            ack = 1
         self.TCPHeader.setFlag(syn,ack,fin,psh,rst,urg)
         self.pktTYPE = pktType
 
+
+
+    # pack the packet with the parameter of its own and set the packetcontent
     def packPacket(self):
         IPheader = self.IPHeader
         IPheader.fillIPHeader()
@@ -66,13 +66,16 @@ class Packet:
         self.TCPHeader.data = self.userData
         self.pktcontent = IPheaderContent + TCPheaderContent +self.userData
 
+
     def rawSend(self, socket, content, addr):
         socket.sendto(content, addr)
 
+    # pack the packet and then send it to the server
     def sendPack(self,sock):
         self.packPacket()
         sock.sendto(self.pktcontent,(self.dstIP,0))
 
+    # unpack the packet and fill the information of TCPHeader and IPHeader.
     def unPackPacket(self,pack):
         self.pktcontent = pack[0]
         self.IPHeader.unpackIPHeader(pack)

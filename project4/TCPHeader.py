@@ -8,8 +8,8 @@ class TCPHeader:
         self.dstPort = dstPort
         self.seqNum = 0
         self.ackNum = 0
-        self.window = 65535
-        self.c_win = 1
+        self.window = 65535     #initial the window as the 65535
+        self.c_win = 1          #initial the congestion window as 1
         self.ack = 0
         self.syn = 0
         self.rst = 0
@@ -18,12 +18,14 @@ class TCPHeader:
         self.urg = 0
         self.urgPointer = 0
         self.checkSum = 0
-        self.dataOffSet = 5
+        self.dataOffSet = 5         # initail the offset as 5, sometimes it may be 6 because of the option
         self.option = 0
-        self.TCPHeaderContent = ""
+        self.TCPHeaderContent = ""   #string format of TCPHeader content
         self.data = ""
-        self.isOption = 0
+        self.isOption = 0           # the flag of whether there is a option
 
+
+    # set the flag
     def setFlag(self, syn, ack, fin, psh, rst, urg):
         self.syn = syn
         self.ack = ack
@@ -60,9 +62,32 @@ class TCPHeader:
     def setChecksum(self,checksum):
         self.checkSum = checksum
 
+
+    # 0                   1                   2                   3
+    #     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    #    |          Source Port          |       Destination Port        |
+    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    #    |                        Sequence Number                        |
+    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    #    |                    Acknowledgment Number                      |
+    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    #    |  Data |           |U|A|P|R|S|F|                               |
+    #    | Offset| Reserved  |R|C|S|S|Y|I|            Window             |
+    #    |       |           |G|K|H|T|N|N|                               |
+    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    #    |           Checksum            |         Urgent Pointer        |
+    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    #    |                    Options                    |    Padding    |
+    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    #    |                             data                              |
+    #    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    # ref:http://www.binarytides.com/raw-socket-programming-in-python-linux/
+    # fill the TCPHeader
     def fillPseTCPHeader(self,srcIP, dstIP, userData):
         OffSetRes = (self.dataOffSet << 4) + 0 # the ! in the pack format string means network order
-        flags = self.fin + (self.syn << 1) + (self.rst << 2) + (self.psh <<3) + (self.ack << 4) + (self.urg << 5)
+        flags = self.fin + (self.syn << 1) + (self.rst << 2) + (self.psh <<3) + (self.ack << 4) + (self.urg << 5)    #use << to shift the flag bit
         TCPHeader = pack('!HHLLBBHHH',self.srcPort, self.dstPort ,self.seqNum, self.ackNum, OffSetRes,flags, self.window, self.checkSum, self.urgPointer)
         placeholder = 0
         source_address = socket.inet_aton(srcIP)
@@ -75,6 +100,7 @@ class TCPHeader:
         # make the tcp header again and fill the correct checksum - remember checksum is NOT in network byte order
         tcp_header = pack('!HHLLBBH' , self.srcPort, self.dstPort, self.seqNum, self.ackNum, OffSetRes, flags,  self.window) + pack('H', pseHeader_check) + pack('!H' , self.urgPointer)
         self.TCPHeaderContent = tcp_header
+
 
     # checksum functions needed for calculation checksum
     def calchecksum(self,msg):
@@ -91,6 +117,7 @@ class TCPHeader:
 
         return s
 
+    # uppack the string format of packet and set the parameter of TCPHeader
     def unpackTCPHeader(self,recvpack):
         tcpHeader = recvpack[0][20:40]
         tcp_hdr = unpack("!HHLLBBHHH",tcpHeader)
@@ -99,6 +126,7 @@ class TCPHeader:
         seqNum = tcp_hdr[2]
         ackNum = tcp_hdr[3]
         offset_res = tcp_hdr[4]
+        # inverse method of calculate flag
         flags = tcp_hdr[5]
         offset = offset_res >> 4
         flagtmp = flags
@@ -123,8 +151,10 @@ class TCPHeader:
         self.setChecksum(checksum)
         IPheaderLen = 20
         TCPHeaderLen = offset*4
+        # if the offset is 6, it means there is option in the TCPHeader and the data start from 44
         if offset == 6:
             self.isOption = 1
-            self.option = recvpack[0][:44]
+            self.TCPHeaderContent = recvpack[0][20:44]
             self.option = recvpack[0][IPheaderLen+TCPHeaderLen-4:IPheaderLen+TCPHeaderLen]
+        self.TCPHeaderContent = recvpack[0][20:40]
         self.data = recvpack[0][IPheaderLen +TCPHeaderLen:]

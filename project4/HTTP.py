@@ -4,11 +4,11 @@ import commands
 import connection
 import _random
 import sys
+import re
 
-dstIP = "216.97.236.245"
+#dstIP = "216.97.236.245"
 
 CRLF = "\r\n"
-
 
 
 class HTTPRequest:
@@ -19,7 +19,7 @@ class HTTPRequest:
         self.host = self.url.netloc
         self.path = self.url.path
         self.dstPort = 80
-        self.dstIP = dstIP
+        self.dstIP = socket.gethostbyname(self.host)
         self.requestContent = ""
 
 
@@ -32,67 +32,41 @@ class HTTPRequest:
         data = con.recvedPackCon
         self.processHTML(data)
 
+    # cut the HTML response header
     def processHTML(self,content):
         HTMLHeaderIndex = content.find('\r\n\r\n')
         HTMLResponseHeader = content[:HTMLHeaderIndex]
-        HTMLContent = content[HTMLHeaderIndex+4:]
+        if self.isChunk(HTMLResponseHeader):
+            HTMLContent = content[HTMLHeaderIndex+2:]
+        else:
+            HTMLContent = content[HTMLHeaderIndex+4:]
         if HTMLResponseHeader.find("HTTP/1.1 200 OK") == -1:
             print "HTTP error"
             sys.exit()
         else:
-            #HTMLContent = self.processHTML(HTMLContent)
+            if self.isChunk(HTMLResponseHeader):
+                HTMLContent = self.processChunk(HTMLContent)
             self.writeToFile(HTMLContent)
 
-    # TODO def processHTML(self,content)
+    # chunk flag is show as \r\nxxx\r\n, find it and replace it for ""
+    def processChunk(self, data):
+        patternstr = "\r\n(.*)\r\n"
+        pattern = re.compile(patternstr)
+        chunkFlag = re.findall(pattern, data)
+        for flag in chunkFlag:
+            if flag == "0":
+                flagstr = "\r\n" + flag + "\r\n\r\n"                                            # the last flag is 0 and it is end with \r\n0\r\n\r\n
+            else:
+                flagstr = "\r\n" + flag + "\r\n"
+            data = data.replace(flagstr,"")
+        return data
 
-
-    # def RecvData(self, sendsock, recvsock):
-    #     Response =''
-    #     ResponseHeader = recvAck(sendsock,recvsock)
-    #     Response += ResponseHeader
-    #     if isChunk(Response):
-    #         if "\r\n0\r\n" in Response:
-    #             print "!$@$@$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
-    #             return Response
-    #         while 1:
-    #             tmp = str(recvAck(sendsock,recvsock))
-    #             if (tmp[0] == "0") or ("\n0\r\n" in tmp):
-    #                 print "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH"
-    #                 break
-    #             else:
-    #                 Response += tmp
-    #                 print "tmp" + tmp
-    #         return Response
-    #     elif "Content-Length:" in Response:
-    #         content_pos = ResponseHeader.find("\r\n\r\n")+4
-    #         content_len_rev = len(ResponseHeader[content_pos:])
-    #         content_len = ResponseDatalength(ResponseHeader)
-    #         length = content_len - content_len_rev
-    #         if(length == 0):
-    #             return Response
-    #         while length != 0:
-    #             tmp = recvAck(sendsock,recvsock)
-    #             Response += tmp
-    #             length -= len(tmp)
-    #         return Response
-    #     else:
-    #         return ''
-    #
-    # def isChunk(header):
-    #     if "Transfer-Encoding: chunked" in header:
-    #         return 1
-    #     else:
-    #         return 0
-    #
-    #
-    # def ResponseDatalength(header):
-    #     patternstr = "Content-Length: (.*?)\r\n"
-    #     pattern = re.compile(patternstr)
-    #     datalength = re.findall(pattern, header)
-    #     return int(datalength[0])
-    #
-
-
+    # to check whether it is chunk encodeing
+    def isChunk(self,header):
+        if "Transfer-Encoding: chunked" in header:
+            return 1
+        else:
+            return 0
 
     def get(self):
         host = self.host
@@ -125,17 +99,4 @@ class HTTPRequest:
 
         targetFile = open(filename,'w')
         targetFile.write(content)
-        print 'done'
-
-    # if len(sys.argv)<2:
-# 	print "You need input target url"
-# 	sys.exit(0)
-#
-# url = urlparse.urlparse(sys.argv[1])
-# dstHost = url.netloc
-# dstIP = socket.gethostbyname(dstHost)
-# path = url.path
-# if url.path == '' or path[-1] == '/':
-# 	filename = 'index.html'
-# else:
-# 	filename = path.split('/')[-1]
+        print "writing done"

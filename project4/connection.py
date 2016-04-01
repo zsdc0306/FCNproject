@@ -4,13 +4,10 @@ import random
 import commands
 import re
 from HTTP import *
-import urlparse
 import packet
 import time
 from struct import *
 from socket import *
-import IPHeader
-import TCPHeader
 import socket
 
 
@@ -19,39 +16,35 @@ ACK = 2
 PSH = 3
 FIN = 4
 
-TargetData = ""
-
-
-
-
 class Ccnnection:
-    """class of the packet, including TCPHeader, IPHeader"""
+    """class of the connection, with all function related to connection, for example three way handshake"""
     def __init__(self, dstIP, dstPort):
-        self.srcIP = re.findall("inet addr:(.*)  Bcast", commands.getoutput('/sbin/ifconfig'))[0]
+        self.srcIP = re.findall("inet addr:(.*)  Bcast", commands.getoutput('/sbin/ifconfig'))[0]      # get the source ip address with system command
         self.dstIP = dstIP
-        self.srcPort = random.randint(50000,60000)
+        self.srcPort = random.randint(50000,60000)                                                     # set the source port as a random one
         self.dstPort = dstPort
-        self.sendPacket = packet.Packet(self.srcIP,dstIP,self.srcPort,dstPort)
+        self.sendPacket = packet.Packet(self.srcIP,dstIP,self.srcPort,dstPort)                        # create 4 packet object for different use, send packet is used to record the last send packet
         self.recvPacket = packet.Packet(dstIP,self.srcIP,dstPort,self.srcPort)
         self.synPacket = packet.Packet(self.srcIP,dstIP,self.srcPort,dstPort)
         self.finPacket = packet.Packet(self.srcIP,dstIP,self.srcPort,dstPort)
         self.sendsocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.recvsocket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
-        self.recvedPackCon = ""
+        self.recvedPackCon = ""                                                                       # record the received data
+        self.c_window = 1
 
-    def setRequestPack(self,userData):
+    def setRequestPack(self,userData):                                                                # used to set the HTTP request packet, as the PSH packet
         self.sendPacket.setPktTpye(PSH)
         self.sendPacket.userData = userData
         self.sendPacket.packPacket()
 
-    def setAckPack(self):
-        self.sendPacket.setPktTpye(ACK)
-        self.sendPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)
-        if self.recvPacket.TCPHeader.fin == 1 or self.recvPacket.TCPHeader.syn == 1:
+    def setAckPack(self):                                                                             # set the ack packet
+        self.sendPacket.setPktTpye(ACK)                                                               # type is ack
+        self.sendPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)                            # the sequence number is receive packet's sequence number
+        if self.recvPacket.TCPHeader.fin == 1 or self.recvPacket.TCPHeader.syn == 1:                  # if the revepacket is syn packet of fin packet, the acknowledge numb plus 1,
             self.sendPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + 1)
         else:
-            self.sendPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + len(self.recvPacket.TCPHeader.data))
-        self.sendPacket.userData = ""
+            self.sendPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + len(self.recvPacket.TCPHeader.data))   # otherwise is plus length of data
+        self.sendPacket.userData = ""                                                                 # ack packet dose not has data
         self.sendPacket.packPacket()
 
     def startTransmit(self):
@@ -60,10 +53,10 @@ class Ccnnection:
         while self.recvPacket.TCPHeader.fin != 1:
             self.sendPacket.sendPack(self.sendsocket)
             self.recvPack()
-        self.setAckPack()
+        self.setAckPack()                                                                           # get the fin packet, ack the fin packet and tear the connection
         self.sendPacket.sendPack(self.sendsocket)
         self.setTearDown()
-        print "done"
+        print "connection done"
         return
 
 
@@ -73,16 +66,16 @@ class Ccnnection:
         # win = self.c_window
         startTime = time.time()
         while 1:
-            if time.time() - startTime > 60000: #set timeout
-                self.c_window = 1               #reset congestion window
+            if time.time() - startTime > 60000:                                                                                         #set timeout
+                self.c_window = 1                                                                                                        #reset congestion window
                 break
-            ipHeader = unpack("!BBHHHBBH4s4s",recvbuff[0][0:20])
+            ipHeader = unpack("!BBHHHBBH4s4s",recvbuff[0][0:20])                                                                            # unpack the receive buffer to check the ip and port
             tcpHeader = unpack("!HHLLHHHH",recvbuff[0][20:40])
             recvSrcIP = inet_ntoa(ipHeader[8])
             recvDstIP = inet_ntoa(ipHeader[9])
             recvSrcPort = tcpHeader[0]
             recvDstPort = tcpHeader[1]
-            if recvSrcIP == self.dstIP and recvDstIP == self.srcIP and recvSrcPort == self.dstPort and recvDstPort == self.srcPort:
+            if recvSrcIP == self.dstIP and recvDstIP == self.srcIP and recvSrcPort == self.dstPort and recvDstPort == self.srcPort:              # to check whether the received packet is from the target server
                 recvPack = packet.Packet(self.dstIP,self.srcIP,self.dstPort,self.srcPort)
                 recvPack.unPackPacket(recvbuff)
                 if recvPack.TCPHeader.syn == 1 or recvPack.TCPHeader.fin ==1:
@@ -90,18 +83,25 @@ class Ccnnection:
                     self.sendPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)
                     self.sendPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum+1)
                     self.sendPacket.setPktTpye(ACK)
+                    window = min(self.sendPacket.TCPHeader.window, self.recvPacket.TCPHeader.window)                                               #merge the window
+                    self.sendPacket.TCPHeader.window = window
                     return
                 if recvPack.TCPHeader.ack == 1 and recvPack.TCPHeader.data == "":
                     recvbuff = self.recvsocket.recvfrom(65535)
                     self.recvPacket = recvPack
                     continue
                 if recvPack.TCPHeader.seqNum != self.sendPacket.TCPHeader.ackNum or recvPack.TCPHeader.ackNum != (self.sendPacket.TCPHeader.seqNum+len(self.sendPacket.TCPHeader.data)):
+                                                                        # to match whether the sequence number is expected one, if not, return the receive method, the sendpacket is not updated so it will resend the former ack packet
                     return
                 else:
-                    self.recvPacket = recvPack
+                    self.recvPacket = recvPack                                                             # match the legal packet and store it to the recvpacket
                     self.recvedPackCon += recvPack.TCPHeader.data
                     self.setAckPack()
-                    print "segment data:^^^^^^^^^^^^^^^^^^^^^^^^^^^^" + recvPack.TCPHeader.data
+                    window = min(self.sendPacket.TCPHeader.window, self.recvPacket.TCPHeader.window)                                               #merge the window
+                    self.sendPacket.TCPHeader.window = window
+                    self.c_window += 1                                                                     # once receive packet successfully, increase congestion window
+                    if self.c_window>1000:
+                        self.c_window = self.c_window / 2                                                  # fix the congestion window
                     return
             else:
                 recvbuff = self.recvsocket.recvfrom(65535)
@@ -118,8 +118,8 @@ class Ccnnection:
 
 
 
-    def setTCPConnection(self):
-        synSeq = random.randint(10000,300000)
+    def setTCPConnection(self):                                                         # three way handshake
+        synSeq = random.randint(10000,300000)                                           # initial the sequence number as a random number
         self.synPacket.TCPHeader.setSeq(synSeq)
         self.synPacket.TCPHeader.setAck(0)
         self.synPacket.setPktTpye(SYN)
@@ -136,71 +136,10 @@ class Ccnnection:
 
 
     def setTearDown(self):
-        self.finPacket.setPktTpye(FIN)
+        self.finPacket.setPktTpye(FIN)                                                  # dend the Fin packet
         self.finPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)
         self.finPacket.TCPHeader.setAck(self.recvPacket.TCPHeader.seqNum + 1)
         self.finPacket.packPacket()
         self.finPacket.sendPack(self.sendsocket)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#
-# def setTCPConnection(sendsocket, recvsocket):
-#     synpack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
-#     #send SYN pack
-#     synSeq = random.randint(0,100000)
-#     synpack.TCPHeader.setSeq(synSeq)
-#     synpack.TCPHeader.setAck(0)
-#     synpack.packPacket(SYN,"")
-#     pktContent = synpack.getPktCon()
-#     synpack.rawSend(sendsocket,pktContent,(dstIP,0))
-#     synAckPack = packet.Packet(dstIP,srcIP,dstPort,srcPort)
-#     synAckPack = synAckPack.recvPack(recvsocket)
-#     #to check whether the port and ip of receive packet is the oppisite we send
-#     seqNum = synAckPack.TCPHeader.getSeq()
-#     ackNum = synAckPack.TCPHeader.getAck()
-#     ackPack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
-#     ackPack.TCPHeader.setAck(seqNum+1)
-#     ackPack.TCPHeader.setSeq(ackNum)
-#     ackPack.packPacket(ACK,"")
-#     pktContent = ackPack.getPktCon()
-#     ackPack.rawSend(sendsocket,pktContent,(dstIP,0))
-#     return ackPack
-
-
-
-    #******************************************************************
-    # pack = packet.Packet(srcIP,dstIP,srcPort,dstPort)
-    # #send SYN pack
-    # pack.TCPHeader.setSeq(0)
-    # pack.TCPHeader.setAck(0)
-    # synPack = pack.packPacket(SYN,"")
-    # pack.sendPack(sendsocket,synPack,(dstIP,0))
-    # synAckPack = packet.Packet(dstIP,srcIP,dstPort,srcPort)
-    # synAckPack = synAckPack.recvPack(recvsocket)
-    # #to check whether the port and ip of receive packet is the oppisite we send
-    # seqNum = synAckPack.TCPHeader.getSeq()
-    # ackNum = synAckPack.TCPHeader.getAck()
-    # pack.TCPHeader.setAck(seqNum+1)
-    # pack.TCPHeader.setSeq(ackNum)
-    # ackPack = pack.packPacket(ACK,"")
-    # pack.sendPack(sendsocket,ackPack,(dstIP,0))
-    # return pack
-
 
 
