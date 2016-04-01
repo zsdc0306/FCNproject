@@ -82,18 +82,5 @@ class Packet:
         self.TCPHeader.unpackTCPHeader(pack)
 
 
-    def calchecksum(self,msg):
-        s = 0
-        if len(msg) % 2 != 0:
-            msg += pack('B', 0)
-        for i in range(0, len(msg), 2):
-            w = ord(msg[i]) + (ord(msg[i+1]) << 8)
-            s = s + w
-
-        s = (s >> 16) + (s & 0xffff)
-        s = s + (s >> 16)
-        s = ~s & 0xffff
-
-        return s
 
 
