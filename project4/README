@@ -1,0 +1,20 @@
+High-level approach:
+In our project, we implement a HTTP download with raw socket. Our command can be run as ./rawhttpget http://david.choffnes.com/classes/cs4700sp16/project4.php. In the program, we include the iptables setting.
+
+we implement features of IP packets and TCP packets. Includes filter the income packet, setting the correct version, header length and total length, protocol identifier, checksums of incoming/outgoing packets,handling sequence and acknowledgement numbers,dealing with timeout, discarding duplicate packets, merge the advertise window, implementing a congestion window,putting the out-of-order incoming packets into correct order.
+
+
+Low-level approach:
+
+We use socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW) for send socket and socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP) for receive socket.
+
+We create a packet class, which contain IPhdaer and TCPheader. It stores all the information for a packet that send to and receive from the server. In TCPheader class, it contains all the features tahat a TCPheader need. In IPheader, it contain all the information that it need.
+
+We also create a connection class, it is used to handle the data transmision. It contains a sendpacket, a receivepacket, a synpacket and finpacket. The reason to seperate sendpacket and recvpacket is because we use it to store the last send/receive packet status and get the sequence and ack number. If packet receive failed, send the last send packet so the server knows that it need to retransmit the datapacket. Besides, in connection class it contains setConnection which is used to three-way handshake and teardown to four-way hand shake for tear down the connection. Also it include a basic congestion window, basic time out process.
+
+In HTTP class, it contains all high level approach, such as making http request, process the html file and get rid of the chunk flag, etc.
+
+
+challenge:
+It is quite challenge to handle the sequence number and acknowledge number. At first we try to use a single packet to do it, but the packet may impact each other. So we design two loops, in the largeer loop, send and receive packet, in the small loop, try to receive the packet we need. If we can't receive the packet we need, jump out of the small loop and send the orignal packet.
+Besides, it is the first time we use entire oop programming. We design classes for each object so the code is clear to read and maintaince.
