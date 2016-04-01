@@ -78,6 +78,9 @@ class Ccnnection:
             if recvSrcIP == self.dstIP and recvDstIP == self.srcIP and recvSrcPort == self.dstPort and recvDstPort == self.srcPort:              # to check whether the received packet is from the target server
                 recvPack = packet.Packet(self.dstIP,self.srcIP,self.dstPort,self.srcPort)
                 recvPack.unPackPacket(recvbuff)
+                if recvPack.IPHeader.calchecksum(recvPack.IPHeader.IPHeaderContent) != 0:
+                    print "checksum error"                                                                                                               # check the checksum
+                    return
                 if recvPack.TCPHeader.syn == 1 or recvPack.TCPHeader.fin ==1:
                     self.recvPacket = recvPack
                     self.sendPacket.TCPHeader.setSeq(self.recvPacket.TCPHeader.ackNum)

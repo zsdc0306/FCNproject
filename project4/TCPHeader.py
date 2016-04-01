@@ -23,7 +23,7 @@ class TCPHeader:
         self.TCPHeaderContent = ""   #string format of TCPHeader content
         self.data = ""
         self.isOption = 0           # the flag of whether there is a option
-
+        self.TCPHeaderContentData = ""
 
     # set the flag
     def setFlag(self, syn, ack, fin, psh, rst, urg):
@@ -100,6 +100,7 @@ class TCPHeader:
         # make the tcp header again and fill the correct checksum - remember checksum is NOT in network byte order
         tcp_header = pack('!HHLLBBH' , self.srcPort, self.dstPort, self.seqNum, self.ackNum, OffSetRes, flags,  self.window) + pack('H', pseHeader_check) + pack('!H' , self.urgPointer)
         self.TCPHeaderContent = tcp_header
+        return tcp_header
 
 
     # checksum functions needed for calculation checksum
@@ -158,3 +159,4 @@ class TCPHeader:
             self.option = recvpack[0][IPheaderLen+TCPHeaderLen-4:IPheaderLen+TCPHeaderLen]
         self.TCPHeaderContent = recvpack[0][20:40]
         self.data = recvpack[0][IPheaderLen +TCPHeaderLen:]
+        self.TCPHeaderContentData = recvpack[0][20:]
