@@ -62,6 +62,23 @@ import urllib2
 # /                      RDATA                    /
 # +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 
+try:
+    name = sys.argv[4]
+    port = int(sys.argv[2])
+except Exception:
+    print 'You need input port and name. Exiting Program.'
+    sys.exit()
+
+query_content =""
+name = name.split(".")
+for part in name:
+    query_content += pack("!B", len(part))
+    for byte in bytes(part):
+        query_content += pack("!c", byte)
+query_content += pack('!B',0)
+QNAMELen = len(query_content)
+
+
 
 class fastestIP():
     def __init__(self):
@@ -100,7 +117,8 @@ class DNSHeader():
                       self.qdcount,
                       self.ancount,
                       self.nscount,
-                      self.arcount)
+                      self.arcount
+                      )
         self.header_content = header
         return 1
 
@@ -126,7 +144,13 @@ class DNSAnswer():
         self.data = ""
 
     def pack(self):
-        answer = pack('!HHHIH',self.name,self.type,self.a_class,self.ttl,self.length)
+        answer = pack('!HHHIH',
+                      self.name,
+                      self.type,
+                      self.a_class,
+                      self.ttl,
+                      self.length
+                      )
         answer += self.data
         self.answer_content = answer
         return 1
@@ -138,6 +162,7 @@ class DNSAnswer():
         self.ttl = ttl
         self.length = length
         self.data = data
+
 
 
 class DNSHandler(SocketServer.BaseRequestHandler):
@@ -157,20 +182,9 @@ class DNSHandler(SocketServer.BaseRequestHandler):
         ip = socket.inet_aton(ip)
         DNSanswer.setAnswer(0xc00c,1,1,600,4,ip)
         DNSanswer.pack()
-        print len(Question)
-        print "^^^^^^^^"
-        print len(DNSanswer.answer_content)
         sendmsg = sendDNSheader.header_content + Question + DNSanswer.answer_content
         mysocket.sendto(sendmsg,self.client_address)
 
-
-
-try:
-    name = sys.argv[4]
-    port = int(sys.argv[2])
-except Exception:
-    print 'You need input port and name. Exiting Program.'
-    sys.exit()
 
 server = SocketServer.UDPServer(('',port),DNSHandler)
 server.serve_forever()

@@ -1,0 +1,7 @@
+High-level approach
+In dnsserver, we use Socketserver lib and implement the DNShandler.
+We set a DNSHeader class and DNSAnswer class and has all attribute of DNS packet. We didn't process the Query part because our project doesn't need to figure out what CNAME is. After receiving the Query packet than get the packetID and attach the query part and the answer part we make to build a new answer and send back to the client.
+In httpserver, we use BaseHTTPServer lib and implement the HTTPhandler. We use urllib to fetch the content from the origin server.
+
+Challenge:
+At first we are not clear about the length of DNS query part and it always get error. Finally we figure out that the CNAME in query part is null and the length of Query part should be 5.
