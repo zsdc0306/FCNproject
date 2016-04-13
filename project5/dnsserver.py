@@ -65,7 +65,7 @@ import urllib2
 
 class fastestIP():
     def __init__(self):
-        self.ip=""
+        self.ip="54.85.32.37"
 
     def getIP(self):
         return self.ip
@@ -139,23 +139,29 @@ class DNSAnswer():
         self.length = length
         self.data = data
 
+
 class DNSHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         data = self.request[0].strip()
-        socket = self.request[1]
+        print len(data)
+        print "\n"
+        mysocket = self.request[1]
         recvDNSheader = DNSHeader()
         recvDNSheader.unpack(data[:12])
         sendDNSheader = DNSHeader()
         sendDNSheader.setHeader(recvDNSheader.id,0b1000000110000000,1,1,0,0)
         sendDNSheader.pack()
-        Question = data[12:]
+        Question = data[12:17]
         DNSanswer = DNSAnswer()
         ip = fastestIP().getIP()
+        ip = socket.inet_aton(ip)
         DNSanswer.setAnswer(0xc00c,1,1,600,4,ip)
         DNSanswer.pack()
-
+        print len(Question)
+        print "^^^^^^^^"
+        print len(DNSanswer.answer_content)
         sendmsg = sendDNSheader.header_content + Question + DNSanswer.answer_content
-        socket.sendto(sendmsg,self.client_address)
+        mysocket.sendto(sendmsg,self.client_address)
 
 
 

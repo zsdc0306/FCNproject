@@ -2,17 +2,15 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import urllib
 import urllib2
 import sys
+import getopt
+
 
 
 class HTTPHandler(BaseHTTPRequestHandler):
-    def __init__(self, origin, cache, *args):
-        self.origin = origin
-        BaseHTTPRequestHandler.__init__(self, *args)
-
-
     def do_GET(self):
         # if not in cache:
-        url = "http://" + self.origin + ":8080" + self.path
+        url = "http://" + origin + ":8080" + self.path
+        data = ""
         try:
             response = urllib2.urlopen(url)
             data = response.read()
@@ -22,14 +20,19 @@ class HTTPHandler(BaseHTTPRequestHandler):
             self.send_error(e.message)
         except Exception as e:
             self.send_error(e.message)
+        self.send_response(200)
+        self.send_header('Content-type','text/plain')
+        self.end_headers()
+        self.wfile.write(data)
 
-try:
-    port = sys.argv[4]
-    origin = int(sys.argv[2])
-except Exception:
-    print 'You need input port and url. Exiting Program.'
-    sys.exit()
+if __name__ == '__main__':
+    try:
+        port = int(sys.argv[4])
+        origin = sys.argv[2]
+    except Exception:
+        print 'You need input port and url. Exiting Program.'
+        sys.exit()
 
-server = HTTPServer(('',port),HTTPHandler)
-server.serve_forever()
+    server = HTTPServer(('',port),HTTPHandler)
+    server.serve_forever()
 
