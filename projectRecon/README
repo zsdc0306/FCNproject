@@ -1,0 +1,44 @@
+High level approach:
+I put all .log file in a folder and traverse the file in the folder.
+Then I use bash command egrep to match the specific word that may be PII. For example the first name, last name, phone info such as IMEI, ADID, etc.
+In egrep, I use -i to ignore the upper and lower case and -o to output each part as a separate line. I use uniq -c to get the number of the matched items and sort to sort the result.
+After running the script, I will check the items that matched and if find the suspicious items, I will go to the file and check manually.
+For location, I use 2 ways to match. First I use label such as "lat=". Then I use the location number to match. The attitude of the place that I do the experiment is 41.0xxx and -71.xxx. So I use this to match the location and compare with the label.
+For company contacted, I use 2 ways to match. First I use the famous company name like google, facebook, amazon, linkedin, etc. Then I use www.xxx.com to match the url.
+
+Script:
+I use python to write the script. In python, I use the commands module and run the egrep command and print the result.
+
+Challenge:
+The most challenging part of the project is to match the location. Every app and website may use different expression to record the location. Some of them may use lat=xxx&lon=xx, some may use latitude=xxx&longtitude=xxx. Some may use no label and just give the latitude and longtidue. So I use the both expression to match them. In location1, I try to match the lat(itude) and in location2 I try to match 42.xxxx, which is the latitude of where I do the test. I will compare both of the result and get the final result.
+Besides, in the log of ESPN, I find there is label of lat=&long= but there is no content in it. I think that it may because the APP want to get the location of user but somehow failed to do it.
+In APP, I find that 01-Jan-1990 appears for a lot of times. The birthday that provied in the google sheet is 01-Jan-1990, which is exactly the same. I can't figure out whether this date is birth date of the user or something else (quite wired).
+
+Task Question:
+1. sites:
+    ESPN: 9
+            app: facebook, google, amazon, admob, www.imrworldwide.com, www.outbrain.com
+            browser: google, facebook, amazon, www.dickssportinggoods.com, apple, www.budgetedbauer.com, www.fallingfalcon.com
+    Groupon: 4
+            app: google, facebook, www.gstatic.com
+            browser: google, facebook, amazon
+    offerup: 3
+            app: amazon, facebook, google, www.leanplum.com
+            browser: google, facebook, amazon
+    soundcloud: 3
+            app: facebook, amazon, apple
+            browser: amazon
+    yelp: 5
+            app: google, amazon, mapbox, www.gstatic.com
+            browser: google, amazon, www.imrworldwide.com,
+2. From the result I get, I think most of the PII is legal. But there is some question such as ESPN get the location zip of user and I'm not sure why it do so. Other APPs need the address or location to provide the services so I think they are allowed to do so.
+Besides, for the sites contacts, I find that most of them are google analysis and AmazonS3, I believe they have corporation with each other.
+3. In Yelp broswer traffic data, I got 250 location. I think it is normal for yelp need my address to provide the restaurants nearby. However, what surprising me is in yelp app, not a single location data was catched.
+
+
+PII:
+ESPN: location zip, password, email, adID, all operating system information
+Groupon: location, address, password, adid, all operating system information
+Yelp: location, zipcode, address, password, adid, all operating system information
+SoundCloud: password, adid, all operating system information
+Offerup: location, password, adid, all operating system information
