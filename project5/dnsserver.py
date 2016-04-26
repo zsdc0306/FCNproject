@@ -3,188 +3,138 @@ from struct import pack, unpack
 import socket
 import SocketServer
 import random
-import urllib
-import urllib2
+import DNSPacket
+import getopt
+import TestRTT
+import collections
+import cache
+import time
 
-# ref: http://www.binarytides.com/dns-query-code-in-c-with-winsock/
-# DNS packets
-# +---------------------+
-# | Header              |
-# +---------------------+
-# | Question            | the question for the name server
-# +---------------------+
-# | Answer              | RRs answering the question
-# +---------------------+
-# | Authority           | RRs pointing toward an authority
-# +---------------------+
-# | Additional          | RRs holding additional information
-# +---------------------+
+# ec2-54-88-98-7.compute-1.amazonaws.com	Origin server (running Web server on port 8080)
+# ec2-54-85-32-37.compute-1.amazonaws.com		N. Virginia
+# ec2-54-193-70-31.us-west-1.compute.amazonaws.com	N. California
+# ec2-52-38-67-246.us-west-2.compute.amazonaws.com	Oregon
+# ec2-52-51-20-200.eu-west-1.compute.amazonaws.com	Ireland
+# ec2-52-29-65-165.eu-central-1.compute.amazonaws.com	Frankfurt
+# ec2-52-196-70-227.ap-northeast-1.compute.amazonaws.com	Tokyo
+# ec2-54-169-117-213.ap-southeast-1.compute.amazonaws.com	Singapore
+# ec2-52-63-206-143.ap-southeast-2.compute.amazonaws.com	Sydney
+# ec2-54-233-185-94.sa-east-1.compute.amazonaws.com	Sao Paulo
 
-# DNS Header
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                     ID                        |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |QR| Opcode    |AA|TC|RD|RA| Z      |  RCODE    |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                   QDCOUNT                     |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                   ANCOUNT                     |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                   NSCOUNT                     |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                   ARCOUNT                     |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+replica_host = [
+    'ec2-54-85-32-37.compute-1.amazonaws.com',
+    'ec2-54-193-70-31.us-west-1.compute.amazonaws.com',
+    'ec2-52-38-67-246.us-west-2.compute.amazonaws.com',
+    'ec2-52-51-20-200.eu-west-1.compute.amazonaws.com',
+    'ec2-52-29-65-165.eu-central-1.compute.amazonaws.com',
+    'ec2-52-196-70-227.ap-northeast-1.compute.amazonaws.com',
+    'ec2-54-169-117-213.ap-southeast-1.compute.amazonaws.com',
+    'ec2-52-63-206-143.ap-southeast-2.compute.amazonaws.com',
+    'ec2-54-233-185-94.sa-east-1.compute.amazonaws.com',
 
-# query
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                                               |
-# /                    QNAME                      /
-# /                                               /
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                    QTYPE                      |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                    QCLASS                     |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+]
 
-# Answer
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# /                       NAME                    /
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                       TYPE                    |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                      CLASS                    |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                       TTL                     |
-# |                                               |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-# |                     RDLENGTH                  |
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--|
-# /                      RDATA                    /
-# +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+replica_host_dic = {
+    'ec2-54-85-32-37.compute-1.amazonaws.com':"54.193.70.31",
+    'ec2-54-193-70-31.us-west-1.compute.amazonaws.com':"54.193.70.31",
+    'ec2-52-38-67-246.us-west-2.compute.amazonaws.com':"52.38.67.246",
+    'ec2-52-51-20-200.eu-west-1.compute.amazonaws.com':"52.51.20.200",
+    'ec2-52-29-65-165.eu-central-1.compute.amazonaws.com':"52.29.65.165",
+    'ec2-52-196-70-227.ap-northeast-1.compute.amazonaws.com':"52.196.70.227",
+    'ec2-54-169-117-213.ap-southeast-1.compute.amazonaws.com':"54.169.117.213",
+    'ec2-52-63-206-143.ap-southeast-2.compute.amazonaws.com':"52.63.206.143",
+    'ec2-54-233-185-94.sa-east-1.compute.amazonaws.com':"54.233.185.94",
+}
 
-try:
-    name = sys.argv[4]
-    port = int(sys.argv[2])
-except Exception:
-    print 'You need input port and name. Exiting Program.'
-    sys.exit()
 
-query_content =""
-name = name.split(".")
-for part in name:
-    query_content += pack("!B", len(part))
-    for byte in bytes(part):
-        query_content += pack("!c", byte)
-query_content += pack('!B',0)
-QNAMELen = len(query_content)
+ip_table_geo = {
+    "Virginia" : "54.193.70.31",
+    "California" : "54.193.70.31",
+    "Oregon" : "52.38.67.246",
+    "Ireland" : "52.51.20.200",
+    "Frankfurt" : "52.29.65.165",
+    "Tokyo" : "52.196.70.227",
+    "Singapore" : "54.169.117.213",
+    "Sydney" : "52.63.206.143",
+    "SaoPaulo" : "54.233.185.94"
+}
+
+
+
+
+#
+# query_c""
+# name = name.split(".")
+# for part in name:
+#     query_content += pack("!B", len(part))
+#     for byte in bytes(part):
+#         query_content += pack("!c", byte)
+# query_content += pack('!B',0)
+# QNAMELen = len(query_content)
 
 
 
 class fastestIP():
     def __init__(self):
         self.ip="54.85.32.37"
+        self.cache = cache.cache("dnscache.json")
 
-    def getIP(self):
-        return self.ip
+    def getIP(self,client_addr):
+        if self.cache.get(client_addr) != -1:
+            self.ip = self.cache.get(client_addr)
+            return self.ip
+        else:
+            threadlist = []
+            start_time = time.time()
+            for host in replica_host:
+                t = TestRTT.TestRTTThread(host,client_addr)
+                t.start()
+                threadlist.append(t)
+            for t in threadlist:
+                t.join(0.5) # set 50 as timeout
+            bestreplica = self.sortdic(TestRTT.replica_host_delay)
+            self.ip = replica_host_dic[bestreplica]
+            self.cache.set(client_addr, self.ip)
+            return self.ip
 
-
-class DNSHeader():
-    def __init__(self):
-        self.id = random.randint(1, 65535)
-        self.flags = 0
-        self.qdcount = 0
-        self.ancount = 0
-        self.nscount = 0
-        self.arcount = 0
-        self.header_content=""
-
-    def unpack(self, data):
-        self.header_content = data
-        content = data
-        header = unpack('!HHHHHH',content)
-        self.id = header[0]
-        self.flags = header[1]
-        self.qdcount = header[2]
-        self.ancount = header[3]
-        self.nscount = header[4]
-        self.arcount = header[5]
-        return 1
-
-    def pack(self):
-        header = pack('!HHHHHH',
-                      self.id,
-                      self.flags,
-                      self.qdcount,
-                      self.ancount,
-                      self.nscount,
-                      self.arcount
-                      )
-        self.header_content = header
-        return 1
-
-    def setHeader(self,id,flags,qdcount, ancount,nscount,arcount):
-        self.id = id
-        self.flags = flags
-        self.qdcount = qdcount
-        self.ancount = ancount
-        self.nscount = nscount
-        self.arcount = arcount
-        return 1
-
-
-
-class DNSAnswer():
-    def __init__(self):
-        self.name = 0
-        self.type = 0
-        self.a_class = 0
-        self.ttl =0
-        self.answer_content = ""
-        self.length = 0
-        self.data = ""
-
-    def pack(self):
-        answer = pack('!HHHIH',
-                      self.name,
-                      self.type,
-                      self.a_class,
-                      self.ttl,
-                      self.length
-                      )
-        answer += self.data
-        self.answer_content = answer
-        return 1
-
-    def setAnswer(self,name,type,aclass,ttl,length,data):
-        self.name = name
-        self.type = type
-        self.a_class = aclass
-        self.ttl = ttl
-        self.length = length
-        self.data = data
-
-
+    def sortdic(self, latency_dic):
+        sorteddic = collections.OrderedDict(sorted(latency_dic.items(), key=lambda t: t[1]))
+        best_replica = sorteddic.keys()[0] # get the best replica host
+        print "host:" + best_replica + "latency:" + str(sorteddic[best_replica])
+        return best_replica
 
 class DNSHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         data = self.request[0].strip()
-        print len(data)
-        print "\n"
         mysocket = self.request[1]
-        recvDNSheader = DNSHeader()
+        recvDNSheader = DNSPacket.DNSHeader()
         recvDNSheader.unpack(data[:12])
-        sendDNSheader = DNSHeader()
+        sendDNSheader = DNSPacket.DNSHeader()
         sendDNSheader.setHeader(recvDNSheader.id,0b1000000110000000,1,1,0,0)
         sendDNSheader.pack()
         Question = data[12:17]
-        DNSanswer = DNSAnswer()
-        ip = fastestIP().getIP()
+        DNSanswer = DNSPacket.DNSAnswer()
+        ip = fastestIP().getIP(self.client_address)
         ip = socket.inet_aton(ip)
         DNSanswer.setAnswer(0xc00c,1,1,600,4,ip)
         DNSanswer.pack()
         sendmsg = sendDNSheader.header_content + Question + DNSanswer.answer_content
         mysocket.sendto(sendmsg,self.client_address)
 
+opts, args = getopt.getopt(sys.argv[1:],"p:n:")
 
-server = SocketServer.UDPServer(('',port),DNSHandler)
-server.serve_forever()
+port = 0
+try:
+    for op, value in opts:
+        if op =="-p":
+            port = int(value)
+        if op == "-n":
+            name = value
+except Exception as e:
+    print "ERROR:" + e.message
+    sys.exit(0)
+
+
+#
+# server = SocketServer.UDPServer(('',port),DNSHandler)
+# server.serve_forever()
