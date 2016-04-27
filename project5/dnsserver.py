@@ -21,6 +21,9 @@ import time
 # ec2-52-63-206-143.ap-southeast-2.compute.amazonaws.com	Sydney
 # ec2-54-233-185-94.sa-east-1.compute.amazonaws.com	Sao Paulo
 
+cache_TTL = 10 * 60 # set 10 min as cache timeout
+
+
 replica_host = [
     'ec2-54-85-32-37.compute-1.amazonaws.com',
     'ec2-54-193-70-31.us-west-1.compute.amazonaws.com',
@@ -31,7 +34,6 @@ replica_host = [
     'ec2-54-169-117-213.ap-southeast-1.compute.amazonaws.com',
     'ec2-52-63-206-143.ap-southeast-2.compute.amazonaws.com',
     'ec2-54-233-185-94.sa-east-1.compute.amazonaws.com',
-
 ]
 
 replica_host_dic = {
@@ -59,9 +61,6 @@ ip_table_geo = {
     "SaoPaulo" : "54.233.185.94"
 }
 
-
-
-
 #
 # query_c""
 # name = name.split(".")
@@ -78,27 +77,33 @@ class fastestIP():
     def __init__(self):
         self.ip="54.85.32.37"
         self.cache = cache.cache("dnscache.json")
+        self.start_time = time.time()
 
     def getIP(self,client_addr):
+        end_time = time.time()
+        if end_time - self.start_time > cache_TTL:
+            self.cache.clear_cache()    # set time to clear the cache
+            self.start_time = time.time()
         if self.cache.get(client_addr) != -1:
             self.ip = self.cache.get(client_addr)
             return self.ip
         else:
             threadlist = []
-            start_time = time.time()
             for host in replica_host:
-                t = TestRTT.TestRTTThread(host,client_addr)
+                t = TestRTT.TestRTTThread(host,50031 ,client_addr)
                 t.start()
                 threadlist.append(t)
             for t in threadlist:
-                t.join(0.5) # set 50 as timeout
+                t.join(1) # set 1s as timeout
             bestreplica = self.sortdic(TestRTT.replica_host_delay)
             self.ip = replica_host_dic[bestreplica]
-            self.cache.set(client_addr, self.ip)
+            if TestRTT.replica_host_delay[bestreplica] < 100:
+                self.cache.set(client_addr, self.ip)
             return self.ip
 
     def sortdic(self, latency_dic):
         sorteddic = collections.OrderedDict(sorted(latency_dic.items(), key=lambda t: t[1]))
+        print sorteddic
         best_replica = sorteddic.keys()[0] # get the best replica host
         print "host:" + best_replica + "latency:" + str(sorteddic[best_replica])
         return best_replica
@@ -114,7 +119,7 @@ class DNSHandler(SocketServer.BaseRequestHandler):
         sendDNSheader.pack()
         Question = data[12:17]
         DNSanswer = DNSPacket.DNSAnswer()
-        ip = fastestIP().getIP(self.client_address)
+        ip = fastestIP().getIP(self.client_address[0])
         ip = socket.inet_aton(ip)
         DNSanswer.setAnswer(0xc00c,1,1,600,4,ip)
         DNSanswer.pack()
@@ -134,7 +139,14 @@ except Exception as e:
     print "ERROR:" + e.message
     sys.exit(0)
 
-
+# ip = fastestIP()
+# print "$$$$" + ip.getIP("129.10.117.100")
 #
-# server = SocketServer.UDPServer(('',port),DNSHandler)
-# server.serve_forever()
+
+
+server = SocketServer.UDPServer(('',port),DNSHandler)
+try:
+    server.serve_forever()
+except KeyboardInterrupt:
+    server.server_close()
+    # cache.cache.clear_cache()
