@@ -1,15 +1,11 @@
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-import urllib
 import urllib2
 import sys
 import getopt
 import urlparse
 import commands
-import re
 import cache
-import gzip
-import zlib
-import threading
+
 
 class HTTPHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -22,17 +18,23 @@ class HTTPHandler(BaseHTTPRequestHandler):
             # if not in cache:
             if hit == -1:
                 data = self.get_from_origin()
-                if data != "":
-                    print "cache"
+                if data != "":  # if data is not "", response to client
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(data)
+                    print "cache it"  # and cache it
                     httpcache.set(self.path, data)
             else:
-                data = httpcache.get(self.path)
+                print "hit in cache"
+                # httpcache.get() return the data in the cache
+                data = hit
                 self.send_response(200)
-                self.send_header('Content-type', 'text/plain')
+                #self.send_header('Content-type', 'text/plain')
                 # self.send_header('Content-Encoding', "compress, gzip")
                 self.end_headers()
                 self.wfile.write(data)
 
+    # if not hit in the cache, get the content from the origin server.
     def get_from_origin(self):
         print "get page from origin server"
         url = "http://" + origin + ":8080" + self.path
@@ -40,32 +42,31 @@ class HTTPHandler(BaseHTTPRequestHandler):
         try:
             response = urllib2.urlopen(url)
             data = response.read()
+            self.send_response(200)
         except urllib2.HTTPError as e:
             self.send_error(e.code, e.message)
+            return data
         except urllib2.URLError as e:
             self.send_error(e.message)
+            return data
         except Exception as e:
             self.send_error(e.message)
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
-        #self.send_header('Content-Encoding', "compress, gzip")
-        self.end_headers()
-        self.wfile.write(data)
+            return data
+        # self.send_header('Content-type', 'text/plain')
+        # self.send_header('Content-Encoding', "compress, gzip")
         return data
-
-
 
     def do_ping(self):
         path = urlparse.urlparse(self.path)
         client_address = urlparse.parse_qs(path.query)['clientaddr'][0]
-        print "cliant addr:" + client_address
+        # print "cliant addr:" + client_address
         rtt = self.ping(client_address)
         self.send_response(200)
         self.end_headers()
         self.wfile.write(rtt)
 
     def ping(self, client_addr):
-        result = commands.getoutput('/usr/bin/scamper -c "ping -c 1" -i ' + client_addr)
+        result = commands.getoutput('/usr/bin/scamper -c "ping -c 1" -i ' + client_addr)  # run the scamper command
         # patternstr = "time=(.*?) ms\n" # match the rtt
         # pattern = re.compile(patternstr)
         # time = re.findall(pattern, result)[0]
@@ -80,15 +81,20 @@ class HTTPHandler(BaseHTTPRequestHandler):
         # print RTT
         return time
 
-
-class prefecthThread(threading.Thread):
-    def __init__(self, tar_host, tar_port, client_addr, lock=threading.Lock()):
-        threading.Thread.__init__(self)
-
-    def run(self):
-        path = "/wiki/Main_Page"
-        url = "http://" + origin + ":8080"+ path
-        urllib2.urlopen(url)
+# TODO do the prefetch
+# class prefecthThread(threading.Thread):
+#     def __init__(self, tar_host, tar_port, client_addr, lock=threading.Lock()):
+#         threading.Thread.__init__(self)
+#
+#     def run(self):
+#         path = "/wiki/Main_Page"
+#         url = "http://" + origin + ":8080"+ path
+#         urllib2.urlopen(url)
+#         try:
+#             response = urllib2.urlopen(url)
+#             data = response.read()
+#         except Exception as e:
+#             pass
 
 
 
@@ -105,7 +111,6 @@ if __name__ == '__main__':
     except Exception as e:
         print "ERROR:" + e.message
         sys.exit(0)
-
 
     server = HTTPServer(('',port),HTTPHandler)
     server.serve_forever()

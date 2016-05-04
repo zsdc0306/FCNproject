@@ -1,4 +1,4 @@
-#!/bin/bash
+#! /bin/bash
 
 hostnames=(ec2-54-85-32-37.compute-1.amazonaws.com
     ec2-54-193-70-31.us-west-1.compute.amazonaws.com
@@ -28,8 +28,8 @@ do
             echo "name:$OPTARG"
             ;;
         i) #private key
-            #keyfile=$OPTARG
-            # echo "keyfile:$OPTARG"
+            keyfile=$OPTARG
+            echo "keyfile:$OPTARG"
             ;;
         ?)
             echo "unkonw argument"
@@ -38,18 +38,29 @@ do
         esac
 done
 
+# for test
+# for host in "${hostnames[@]}"
+# do
+#     echo "Deploy " $host
+#     ssh $username@$host 'mkdir ~/cdn/'
+#     scp httpserver* Makefile cache.py pagelist.json $username@$host:~/cdn/
+#     scp -r cache/ $username@$host:~/cdn/
+#     # scp Makefile $username@$host:~/scripts/
+#     # scp cache.py $username@$host:~/scripts/
+
+# done
+
+# for upload
 for host in "${hostnames[@]}"
 do
     echo "Deploy " $host
-    ssh $username@$host 'mkdir ~/scripts/'
-    scp httpserver* $username@$host:~/scripts/
-    scp Makefile $username@$host:~/scripts/
-    scp cache.py $username@$host:~/scripts/
+    ssh -i $keyfile $username@$host 'mkdir ~/cdn/'
+    scp -i $keyfile httpserver* Makefile cache.py pagelist.json $username@$host:~/cdn/
+    scp -i $keyfile -r cache/ $username@$host:~/cdn/
 
 done
 
-#dnsserver=cs5700cdnproject.ccs.neu.edu
-#echo "Deploy " $dnsserver
-#ssh -i $keyfile $username@$dnsserver 'mkdir ~/scripts/'
-#scp -i $keyfile * $username@$dnsserver:~/scripts/
-#scp
+dnsserver=cs5700cdnproject.ccs.neu.edu
+echo "Deploy " $dnsserver
+ssh -i $keyfile $username@$dnsserver 'mkdir ~/cdn/'
+scp -i $keyfile dnsserver* cache.py DNSPacket.py Makefile TestRTT.py $username@$dnsserver:~/cdn/

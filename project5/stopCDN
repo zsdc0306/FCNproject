@@ -37,12 +37,21 @@ do
         esac
 done
 
+# for test
+# for host in "${hostnames[@]}"
+# do
+#     echo 'Close ' $host
+#     ssh $username@$host 'killall python'
+# done
+
+#for upload
+
 for host in "${hostnames[@]}"
 do
     echo 'Close ' $host
-    ssh $username@$host 'killall python'
+    ssh -i $keyfile $username@$host 'killall python -u '$username
 done
 
-#dnsserver=cs5700cdnproject.ccs.neu.edu
-#echo "Close " $dnsserver
-#ssh -i $keyfile $username@$dnsserver 'killall python'
+dnsserver=cs5700cdnproject.ccs.neu.edu
+echo "Close " $dnsserver
+ssh -i $keyfile $username@$dnsserver 'killall python -u' $username

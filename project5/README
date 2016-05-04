@@ -1,7 +1,44 @@
+dnsserver: execute the dnsserver.py
+dnsserver.py: two class:
+    fastestIP: get the best replica server. Use the TestRTT.py to handle the test part and cache to manage the DNS cache
+    DNSHandler: provide the function of DNS server. Use DNSPacket.py to handle the rebuilding of DNS packet.
+httpserver: execute the httpserver.py
+httpserver.py: provide the function of HTTP server. User cache.py to handle the http cache.
+cache.py: provide cache for DNS and HTTP. use strategy of LRU.
+TestRTT.py: request the best replica ip
+fetch.py: to fetch all the webpage in origin in order to get the cache for the http server.
+run.py: the script provided by instructor, test the deploy scripts
+deploy/run/stopCDN: the script to deploy, run and stop the code to all the server.
+command: the command to run the script.
+
+
 High-level approach
+Our project can be divided to 4 parts.
+dnsserver, httpserver, cache management, fastest replica server select
+
+dnsserver:
 In dnsserver, we use Socketserver lib and implement the DNShandler.
 We set a DNSHeader class and DNSAnswer class and has all attribute of DNS packet. We didn't process the Query part because our project doesn't need to figure out what CNAME is. After receiving the Query packet than get the packetID and attach the query part and the answer part we make to build a new answer and send back to the client.
+httpserver:
 In httpserver, we use BaseHTTPServer lib and implement the HTTPhandler. We use urllib to fetch the content from the origin server.
+replica server select:
+We use http service to do the select part. Dns server will send the client address to every replica server through http protocol. Replica server will do the ping test to the client and get the RTT and return to the dnsserver. dnsserver will choose the best replica server and return to client.
+cache:
+Cache can be divied in two parts. Both of them we use LRU. In dns server cache, we record the best replica server ip and client ip as a pair and store it to the cache. Every 5 mininuts it will be cleared and do the selecting again.
+In http cache, we maintain two part as cache. The first one is pagelist which record what page is recorded. The other is the directory store the pages.
 
 Challenge:
 At first we are not clear about the length of DNS query part and it always get error. Finally we figure out that the CNAME in query part is null and the length of Query part should be 5.
+Threading processing is quite challenging.
+
+
+Report:
+We believe that download time depends on:
+1. The replica server select: the dnsserver must select the server that has the shortest RTT with client.
+2. The time the dnsserver decide which is the best replica server.
+3. The time that the replica send the content to the client.
+
+In first part, we use active measurement. We ask the httpserver ping the client and return the RTT. We believe it would be more effective than select the replica by geo info. Simply use geo info it may occurs the circumstance that the client is close to the replica server but actually the RTT between them is really long and even the connection between them is not able to establish.
+In second part, we use multiple thread to send the RTT test and choose the best replica server. We use cache to store the record so the next time the client ask which replica server to connect, the dnsserver will return the result immediately. We clear the cache every 5 minutes in case that the network enviornment may change. If there is more time, we would try more times to deciede the time that the cache expired. It should can be more longer. We need choose the number by experiments.
+In third part, we use http cache to store the pages the client has browsed. So the next time it don't need to fetch the data from orign server. We tried it can save about a half of time with the cache. If there is more time, we would try to adjust the cache's structure. Maybe a cache for each client would be more effective for the pages that every client browse is different. The cache should be different by client.
+We tried to use gzip to compress the data that the replica send to client. We add 'Content-Encoding: gzip'. It works if we use curl to get the page but wget it can't handle the gzip. It can save quite a lot time if using this technique.

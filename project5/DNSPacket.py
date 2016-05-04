@@ -41,6 +41,7 @@ class DNSHeader():
         self.arcount = 0
         self.header_content=""
 
+    # unpack the DNS header and set the parameter to the attribute
     def unpack(self, data):
         self.header_content = data
         content = data
@@ -65,7 +66,7 @@ class DNSHeader():
         self.header_content = header
         return 1
 
-    def setHeader(self,id,flags,qdcount, ancount,nscount,arcount):
+    def setHeader(self, id, flags, qdcount, ancount, nscount, arcount):
         self.id = id
         self.flags = flags
         self.qdcount = qdcount

@@ -40,13 +40,21 @@ do
         esac
 done
 
+# for test
+# for host in "${hostnames[@]}"
+# do
+#     echo "Run " $host
+#     ssh $username@$host "sh -c 'cd ~/cdn/; make; nohup ./httpserver -p $port -o $origin > /dev/null 2>&1 &'"
+# done
+
+# for upload
 for host in "${hostnames[@]}"
 do
     echo "Run " $host
-    ssh $username@$host "sh -c 'cd ~/scripts/; make; nohup ./httpserver -p $port -o $origin > /dev/null 2>&1 &'"
+    ssh -i $keyfile $username@$host "sh -c 'cd ~/cdn/; make; nohup ./httpserver -p $port -o $origin > /dev/null 2>&1 &'"
 done
 
-#dnsserver=cs5700cdnproject.ccs.neu.edu
-#echo $dnsserver
-#ssh -i $keyfile -n -f $username@$dnsserver "sh -c 'cd ~/scripts/; nohup ./dnsserver -p $port -n $name > /dev/null 2>&1 &'"
+dnsserver=cs5700cdnproject.ccs.neu.edu
+echo "Run " $dnsserver
+ssh -i $keyfile $username@$dnsserver "sh -c 'cd ~/cdn/; make; nohup ./dnsserver -p $port -n $name > /dev/null 2>&1 &'"
 
